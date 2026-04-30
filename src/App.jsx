@@ -13,7 +13,7 @@ const CurrencyInput = ({ value, onChange, className, placeholder }) => {
 
   useEffect(() => {
     if (!isFocused) setDisplayValue(formatVal(value));
-  }, [value, iisFocused]);
+  }, [value, isFocused]);
 
   const handleBlur = () => {
     setIsFocused(false);
