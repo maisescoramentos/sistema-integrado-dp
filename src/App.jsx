@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, Download, AlertTriangle, FileSpreadsheet, CheckCircle, ArrowRight, FileText, CalendarDays, Calculator, Bus, Coffee, Users, PieChart, Plus, Trash2, Clock, RotateCcw, Save } from 'lucide-react';
+import { Upload, Download, AlertTriangle, FileSpreadsheet, CheckCircle, ArrowRight, FileText, CalendarDays, Calculator, Bus, Coffee, Users, PieChart, Plus, Trash2, Clock, RotateCcw, Save, Eye, EyeOff } from 'lucide-react';
 
 // ================= COMPONENTE DE INPUT MONETÁRIO INTELIGENTE =================
 const CurrencyInput = ({ value, onChange, className, placeholder }) => {
@@ -13,7 +13,7 @@ const CurrencyInput = ({ value, onChange, className, placeholder }) => {
 
   useEffect(() => {
     if (!isFocused) setDisplayValue(formatVal(value));
-  }, [value, isFocused]);
+  }, [value, iisFocused]);
 
   const handleBlur = () => {
     setIsFocused(false);
@@ -90,6 +90,9 @@ export default function App() {
     const saved = localStorage.getItem('dp_historico');
     return saved ? JSON.parse(saved) : [];
   });
+
+  // Controle de Visualização do ERP (Nova Funcionalidade)
+  const [incluirBeneficiosNoERP, setIncluirBeneficiosNoERP] = useState(true);
 
   useEffect(() => localStorage.setItem('dp_colaboradores', JSON.stringify(colaboradores)), [colaboradores]);
   useEffect(() => localStorage.setItem('dp_salarioData', JSON.stringify(salarioData)), [salarioData]);
@@ -591,29 +594,41 @@ export default function App() {
   // ---------- ABA 4: DASHBOARD ERP & FECHAMENTO HISTÓRICO ----------
   const getERPData = () => {
     const erp = {};
+    
+    // Sempre processa salários
     salarioData.forEach(item => {
       const cc = item.centroCusto || 'GERAL';
       if (!erp[cc]) erp[cc] = { salario: 0, vt: 0, vr: 0, headCount: new Set() };
       erp[cc].salario += item.valor;
       erp[cc].headCount.add(item.matricula);
     });
-    const benData = activeTab === 'erp' || activeTab === 'beneficios' ? calcBeneficios() : [];
-    benData.forEach(item => {
-      if (item.totalGeral > 0) {
-        const cc = item.centroCusto || 'GERAL';
-        if (!erp[cc]) erp[cc] = { salario: 0, vt: 0, vr: 0, headCount: new Set() };
-        erp[cc].vt += item.totalVT;
-        erp[cc].vr += item.totalVRLiquido;
-        erp[cc].headCount.add(item.matricula);
-      }
-    });
+
+    // Só processa benefícios se o botão estiver ativo
+    if (incluirBeneficiosNoERP) {
+      const benData = calcBeneficios();
+      benData.forEach(item => {
+        if (item.totalGeral > 0) {
+          const cc = item.centroCusto || 'GERAL';
+          if (!erp[cc]) erp[cc] = { salario: 0, vt: 0, vr: 0, headCount: new Set() };
+          erp[cc].vt += item.totalVT;
+          erp[cc].vr += item.totalVRLiquido;
+          erp[cc].headCount.add(item.matricula);
+        }
+      });
+    }
+
     return Object.keys(erp).map(cc => ({
-      centroCusto: cc, salario: erp[cc].salario, vt: erp[cc].vt, vr: erp[cc].vr, total: erp[cc].salario + erp[cc].vt + erp[cc].vr, vidas: erp[cc].headCount.size
+      centroCusto: cc, 
+      salario: erp[cc].salario, 
+      vt: erp[cc].vt, 
+      vr: erp[cc].vr, 
+      total: erp[cc].salario + erp[cc].vt + erp[cc].vr, 
+      vidas: erp[cc].headCount.size
     })).sort((a, b) => a.centroCusto.localeCompare(b.centroCusto));
   };
-  const erpResumo = getERPData();
 
   const exportERPPDF = () => {
+    const erpResumo = getERPData();
     if (erpResumo.length === 0 || !window.jspdf || !window.jspdf.jsPDF.API.autoTable) {
       return showAlert("Atenção", "Não há dados calculados para imprimir.");
     }
@@ -659,6 +674,7 @@ export default function App() {
   };
 
   const salvarFechamento = () => {
+    const erpResumo = getERPData();
     if (erpResumo.length === 0) {
       return showAlert("Atenção", "Não há dados calculados para salvar no histórico.");
     }
@@ -671,7 +687,8 @@ export default function App() {
       periodo: { ...periodo },
       valorVRDiario,
       beneficiosData: [...beneficiosData],
-      beneficiosOverrides: JSON.parse(JSON.stringify(beneficiosOverrides))
+      beneficiosOverrides: JSON.parse(JSON.stringify(beneficiosOverrides)),
+      incluirBeneficiosNoERP // Salva se foi um fechamento com ou sem benefícios
     };
 
     const periodoStr = periodo.start && periodo.end
@@ -681,7 +698,7 @@ export default function App() {
     const novoRegistro = {
       id: Date.now(),
       dataHora: new Date().toLocaleString('pt-BR'),
-      tipo: 'Fechamento Consolidado de Folha',
+      tipo: incluirBeneficiosNoERP ? 'Fechamento Completo (Salário + Benefícios)' : 'Fechamento Simples (Apenas Salários)',
       detalhes: `Período: ${periodoStr} | Vidas Impactadas: ${colaboradores.length}`,
       valorTotal: totalGeralERP,
       snapshot
@@ -704,6 +721,7 @@ export default function App() {
         setValorVRDiario(snap.valorVRDiario || '');
         setBeneficiosData(snap.beneficiosData || []);
         setBeneficiosOverrides(snap.beneficiosOverrides || {});
+        setIncluirBeneficiosNoERP(snap.incluirBeneficiosNoERP ?? true);
         
         setActiveTab('erp');
         showAlert("Restaurado", "Dados restaurados com sucesso! Você pode conferir os valores ou re-gerar os arquivos.");
@@ -1057,7 +1075,30 @@ export default function App() {
                 <div className="text-center mt-4">
                   <PieChart className="w-12 h-12 text-blue-600 mx-auto mb-4" />
                   <h2 className="text-2xl font-bold text-gray-800">Resumo Gerencial por Centro de Custo</h2>
-                  <p className="text-gray-500 mt-2">Valores consolidados baseados no processamento da aba Salário e aba Benefícios.</p>
+                  
+                  {/* BOTÃO DE ALTERNÂNCIA (NOVA FUNCIONALIDADE) */}
+                  <div className="mt-4 flex justify-center">
+                    <button 
+                      onClick={() => setIncluirBeneficiosNoERP(!incluirBeneficiosNoERP)}
+                      className={`flex items-center space-x-2 px-6 py-2 rounded-full border-2 transition-all duration-300 font-bold text-xs uppercase tracking-wider ${
+                        incluirBeneficiosNoERP 
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-lg scale-105' 
+                        : 'bg-gray-100 text-gray-500 border-gray-300 hover:bg-gray-200'
+                      }`}
+                      title={incluirBeneficiosNoERP ? "Clique para ocultar benefícios do resumo" : "Clique para incluir benefícios no resumo"}
+                    >
+                      {incluirBeneficiosNoERP ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                      <span>
+                        {incluirBeneficiosNoERP ? 'Benefícios: Ativados' : 'Benefícios: Ignorados'}
+                      </span>
+                    </button>
+                  </div>
+
+                  <p className="text-gray-500 mt-4 text-sm">
+                    {incluirBeneficiosNoERP 
+                      ? "Valores consolidados baseados no processamento da aba Salário e aba Benefícios." 
+                      : "Exibindo e salvando apenas valores de Salário/Adiantamento (Benefícios ocultos)."}
+                  </p>
                 </div>
               </div>
 
@@ -1073,11 +1114,11 @@ export default function App() {
                       <p className="text-xs uppercase text-gray-500 font-bold">Total Salários/Adiant.</p>
                       <p className="text-2xl font-bold text-gray-800 mt-1">R$ {formatMoney(totalSalarioERP)}</p>
                     </div>
-                    <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                    <div className={`bg-white p-4 rounded-lg shadow-sm border border-gray-200 transition-opacity ${!incluirBeneficiosNoERP ? 'opacity-30' : 'opacity-100'}`}>
                       <p className="text-xs uppercase text-gray-500 font-bold">Total VT (Benefícios)</p>
                       <p className="text-2xl font-bold text-blue-700 mt-1">R$ {formatMoney(totalVtERP)}</p>
                     </div>
-                    <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                    <div className={`bg-white p-4 rounded-lg shadow-sm border border-gray-200 transition-opacity ${!incluirBeneficiosNoERP ? 'opacity-30' : 'opacity-100'}`}>
                       <p className="text-xs uppercase text-gray-500 font-bold">Total VR (Líq. Benefícios)</p>
                       <p className="text-2xl font-bold text-blue-700 mt-1">R$ {formatMoney(totalVrERP)}</p>
                     </div>
@@ -1094,8 +1135,8 @@ export default function App() {
                           <th className="p-4">Centro de Custo</th>
                           <th className="p-4 text-center">Quantidade de Colaboradores</th>
                           <th className="p-4 text-right">Salário/Adiant.</th>
-                          <th className="p-4 text-right">Vale Transporte</th>
-                          <th className="p-4 text-right">Vale Refeição</th>
+                          <th className={`p-4 text-right ${!incluirBeneficiosNoERP ? 'text-gray-300' : ''}`}>Vale Transporte</th>
+                          <th className={`p-4 text-right ${!incluirBeneficiosNoERP ? 'text-gray-300' : ''}`}>Vale Refeição</th>
                           <th className="p-4 text-right bg-green-50">Custo Total Setor</th>
                         </tr>
                       </thead>
@@ -1105,8 +1146,8 @@ export default function App() {
                             <td className="p-4 font-bold text-gray-800">{row.centroCusto}</td>
                             <td className="p-4 text-center text-gray-500">{row.vidas}</td>
                             <td className="p-4 text-right font-medium text-gray-600">R$ {formatMoney(row.salario)}</td>
-                            <td className="p-4 text-right font-medium text-blue-600">R$ {formatMoney(row.vt)}</td>
-                            <td className="p-4 text-right font-medium text-blue-600">R$ {formatMoney(row.vr)}</td>
+                            <td className={`p-4 text-right font-medium ${!incluirBeneficiosNoERP ? 'text-gray-200' : 'text-blue-600'}`}>R$ {formatMoney(row.vt)}</td>
+                            <td className={`p-4 text-right font-medium ${!incluirBeneficiosNoERP ? 'text-gray-200' : 'text-blue-600'}`}>R$ {formatMoney(row.vr)}</td>
                             <td className="p-4 text-right font-bold text-green-700 bg-green-50/30">R$ {formatMoney(row.total)}</td>
                           </tr>
                         ))}
