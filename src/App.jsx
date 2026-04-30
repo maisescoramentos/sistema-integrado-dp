@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, Download, AlertTriangle, FileSpreadsheet, CheckCircle, ArrowRight, FileText, CalendarDays, Calculator, Bus, Coffee, Users, PieChart, Plus, Trash2, Clock, RotateCcw, Save, Eye, EyeOff, Building2, ChevronDown, ChevronRight } from 'lucide-react';
+import { Upload, Download, AlertTriangle, FileSpreadsheet, CheckCircle, ArrowRight, FileText, CalendarDays, Calculator, Bus, Coffee, Users, PieChart, Plus, Trash2, Clock, RotateCcw, Save, Eye, EyeOff, Building2, ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
 
 // ================= COMPONENTE DE INPUT MONETÁRIO INTELIGENTE =================
 const CurrencyInput = ({ value, onChange, className, placeholder }) => {
@@ -91,7 +91,7 @@ export default function App() {
     return saved ? JSON.parse(saved) : [];
   });
 
-  // Controle de Visualização do ERP (Nova Funcionalidade)
+  // Controle de Visualização do ERP
   const [incluirBeneficiosNoERP, setIncluirBeneficiosNoERP] = useState(true);
 
   // Estado para controlar expansão das empresas no ERP
@@ -146,6 +146,74 @@ export default function App() {
     if (str.includes('SICREDI')) return '748';
     if (/^\d+$/.test(str.trim())) return str.trim(); 
     return str; 
+  };
+
+  // ================= FUNÇÃO DE RESET COMPLETO =================
+  const resetCompleto = () => {
+    showConfirm(
+      "Reset Completo do Sistema",
+      "⚠️ ATENÇÃO: Isso irá limpar TODOS os dados do sistema, incluindo:\n\n• Colaboradores cadastrados\n• Dados de salário processados\n• Lançamentos de benefícios\n• Histórico de fechamentos\n• Configurações de período\n\nEssa ação NÃO pode ser desfeita. Deseja continuar?",
+      () => {
+        // Limpa todos os estados
+        setColaboradores([]);
+        setSalarioData([]);
+        setBeneficiosData([]);
+        setBeneficiosOverrides({});
+        setHistorico([]);
+        setPeriodo({ start: '', end: '', feriados: 0 });
+        setValorVRDiario('');
+        setEspelhoFile(null);
+        setErrorsSalario([]);
+        setExpandedEmpresas({});
+        setFormData({ matricula: '', nome: '', cpf: '', banco: '', agencia: '', conta: '', valorVT: '', centroCusto: 'ADMINISTRATIVO', empresa: '' });
+        
+        // Limpa localStorage
+        localStorage.removeItem('dp_colaboradores');
+        localStorage.removeItem('dp_salarioData');
+        localStorage.removeItem('dp_beneficiosData');
+        localStorage.removeItem('dp_beneficiosOverrides');
+        localStorage.removeItem('dp_historico');
+        localStorage.removeItem('dp_periodo');
+        localStorage.removeItem('dp_valorVRDiario');
+        localStorage.removeItem('dp_paymentType');
+        
+        setActiveTab('colaboradores');
+        showAlert("✅ Reset Concluído", "Todos os dados foram limpos com sucesso. O sistema está pronto para uma nova operação.");
+      }
+    );
+  };
+
+  // ================= FUNÇÃO PARA SINCRONIZAR DADOS =================
+  const sincronizarDados = () => {
+    // Sincroniza beneficiosData com colaboradores atuais
+    if (colaboradores.length > 0) {
+      const lista = [...colaboradores].sort((a, b) => a.nome.localeCompare(b.nome));
+      setBeneficiosData(lista);
+      
+      // Mantém overrides existentes e adiciona novos colaboradores
+      const novosOverrides = {};
+      lista.forEach(c => {
+        if (beneficiosOverrides[c.matricula]) {
+          novosOverrides[c.matricula] = beneficiosOverrides[c.matricula];
+        } else {
+          novosOverrides[c.matricula] = { ausencias: 0, descontoVT: 0, descontoVR: 0, acrescimosVT: 0, acrescimosVR: 0, obs: '', valorVT: c.valorVT || '' };
+        }
+      });
+      setBeneficiosOverrides(novosOverrides);
+      
+      // Limpa salarioData se as matrículas não correspondem
+      if (salarioData.length > 0) {
+        const matriculasColaboradores = new Set(colaboradores.map(c => c.matricula));
+        const salariosFiltrados = salarioData.filter(s => matriculasColaboradores.has(s.matricula));
+        if (salariosFiltrados.length !== salarioData.length) {
+          setSalarioData(salariosFiltrados);
+        }
+      }
+      
+      showAlert("✅ Sincronização Concluída", `Dados sincronizados!\n\n• ${lista.length} colaboradores na base\n• Benefícios atualizados\n• Dados inconsistentes removidos`);
+    } else {
+      showAlert("⚠️ Atenção", "Não há colaboradores cadastrados para sincronizar.");
+    }
   };
 
   useEffect(() => {
@@ -209,17 +277,16 @@ export default function App() {
     const exampleRow = [['001', 'EXEMPLO COLABORADOR', '123.456.789-00', 'ITAU', '1234', '12345-6', '10,50', 'ADMINISTRATIVO', 'EMPRESA EXEMPLO LTDA']];
     const ws = window.XLSX.utils.aoa_to_sheet([...headers, ...exampleRow]);
     
-    // Ajustar largura das colunas
     ws['!cols'] = [
-      { wch: 12 },  // Matrícula
-      { wch: 30 },  // Nome
-      { wch: 16 },  // CPF
-      { wch: 12 },  // Banco
-      { wch: 10 },  // Agência
-      { wch: 12 },  // Conta
-      { wch: 12 },  // Valor VT
-      { wch: 18 },  // Centro de Custo
-      { wch: 25 },  // Empresa
+      { wch: 12 },
+      { wch: 30 },
+      { wch: 16 },
+      { wch: 12 },
+      { wch: 10 },
+      { wch: 12 },
+      { wch: 12 },
+      { wch: 18 },
+      { wch: 25 },
     ];
     
     const wb = window.XLSX.utils.book_new();
@@ -260,15 +327,21 @@ export default function App() {
       if(novos.length > 0) {
         setColaboradores(novos);
         
-        // Contar empresas distintas para feedback
-        const empresasDistintas = [...new Set(novos.map(c => c.empresa))];
-        showAlert("Sucesso", `${novos.length} colaboradores importados de ${empresasDistintas.length} empresa(s)!`);
+        // ✅ CORREÇÃO: Limpar dados derivados ao importar nova base
+        setSalarioData([]);
+        setBeneficiosData([]);
+        setBeneficiosOverrides({});
+        setEspelhoFile(null);
+        setErrorsSalario([]);
+        
+        const empresasDistintas = [...new Set(novos.map(c => c.empresa || 'NÃO INFORMADA'))];
+        showAlert("✅ Importação Concluída", `${novos.length} colaboradores importados de ${empresasDistintas.length} empresa(s)!\n\n⚠️ Os dados de salário e benefícios anteriores foram limpos para evitar inconsistências.`);
       } else {
-        showAlert("Erro", "Nenhum colaborador encontrado.");
+        showAlert("Erro", "Nenhum colaborador encontrado na planilha.");
       }
     } catch (error) {
       console.error(error);
-      showAlert("Erro", "Erro ao ler a planilha.");
+      showAlert("Erro", "Erro ao ler a planilha. Verifique o formato do arquivo.");
     }
     if(fileInputCadastro.current) fileInputCadastro.current.value = '';
   };
@@ -377,6 +450,14 @@ export default function App() {
     window.XLSX.writeFile(wb, `${tipoNome} (${dataFormatada}).xlsx`);
   };
 
+  const limparDadosSalario = () => {
+    showConfirm("Limpar Dados de Salário", "Deseja remover os dados processados da tela de salário?", () => {
+      setSalarioData([]);
+      setEspelhoFile(null);
+      setErrorsSalario([]);
+    });
+  };
+
   // ---------- ABA 3: BENEFÍCIOS ----------
   useEffect(() => {
     if (periodo.start && periodo.end) {
@@ -408,6 +489,8 @@ export default function App() {
       }
     });
     setBeneficiosOverrides(novosOverrides);
+    
+    showAlert("✅ Base Carregada", `${lista.length} colaboradores carregados para lançamento de benefícios.`);
   };
 
   const limparMesBeneficios = () => {
@@ -513,7 +596,7 @@ export default function App() {
     data.forEach(item => {
       if (item.totalVT > 0) {
         let conta = item.conta; let digito = "";
-        if (conta.includes('-')) { const parts = conta.split('-'); digito = parts.pop(); conta = parts.join('-'); }
+        if (conta && conta.includes('-')) { const parts = conta.split('-'); digito = parts.pop(); conta = parts.join('-'); }
         vtData.push([item.agencia || '', conta || '', digito || '', item.nome, item.cpf || '', '3', item.totalVT]);
       }
     });
@@ -525,7 +608,6 @@ export default function App() {
     window.XLSX.writeFile(wb, `Arquivo_Itau_VT_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
-  // ================= FUNÇÃO: EXPORTAR ARQUIVO SOLIDES VR =================
   const exportVRSolidesFile = () => {
     const data = calcBeneficios();
     const vrData = [];
@@ -619,7 +701,6 @@ export default function App() {
 
   // ---------- ABA 4: DASHBOARD ERP & FECHAMENTO HISTÓRICO ----------
   
-  // Função para obter dados agrupados hierarquicamente por Empresa > Centro de Custo
   const getERPDataHierarchico = () => {
     const erp = {};
     
@@ -636,7 +717,7 @@ export default function App() {
     });
 
     // Processa benefícios se habilitado
-    if (incluirBeneficiosNoERP) {
+    if (incluirBeneficiosNoERP && beneficiosData.length > 0) {
       const benData = calcBeneficios();
       benData.forEach(item => {
         if (item.totalGeral > 0) {
@@ -653,7 +734,6 @@ export default function App() {
       });
     }
 
-    // Formata para exibição hierárquica
     const resultado = Object.keys(erp).sort().map(empresa => {
       const centrosCusto = Object.keys(erp[empresa]).sort().map(cc => ({
         centroCusto: cc,
@@ -682,7 +762,6 @@ export default function App() {
     return resultado;
   };
 
-  // Função legada para compatibilidade
   const getERPData = () => {
     const hierarquico = getERPDataHierarchico();
     const flat = [];
@@ -742,7 +821,6 @@ export default function App() {
     let totalGeralSalario = 0, totalGeralVT = 0, totalGeralVR = 0, totalGeralTotal = 0, totalGeralVidas = 0;
 
     erpHierarquico.forEach((empresaData, idx) => {
-      // Cabeçalho da empresa
       doc.setFont("helvetica", "bold");
       doc.setFontSize(11);
       doc.setFillColor(30, 64, 175);
@@ -751,7 +829,6 @@ export default function App() {
       doc.text(`${empresaData.empresa}`, 16, startY + 5.5);
       startY += 10;
 
-      // Tabela de centros de custo
       const tableRows = empresaData.centrosCusto.map(cc => [
         cc.centroCusto,
         cc.vidas,
@@ -783,21 +860,18 @@ export default function App() {
 
       startY = doc.lastAutoTable.finalY + 8;
 
-      // Acumula totais gerais
       totalGeralSalario += empresaData.subtotal.salario;
       totalGeralVT += empresaData.subtotal.vt;
       totalGeralVR += empresaData.subtotal.vr;
       totalGeralTotal += empresaData.subtotal.total;
       totalGeralVidas += empresaData.subtotal.vidas;
 
-      // Verifica se precisa de nova página
       if (startY > 250 && idx < erpHierarquico.length - 1) {
         doc.addPage();
         startY = 20;
       }
     });
 
-    // Total Geral Final
     doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
     doc.setFillColor(21, 128, 61);
@@ -842,7 +916,6 @@ export default function App() {
       ? `${periodo.start.split('-').reverse().join('/')} a ${periodo.end.split('-').reverse().join('/')}`
       : 'Sem período definido';
 
-    // Conta empresas distintas
     const empresasDistintas = [...new Set(colaboradores.map(c => c.empresa || 'NÃO INFORMADA'))];
 
     const novoRegistro = {
@@ -855,7 +928,7 @@ export default function App() {
     };
 
     setHistorico(prev => [novoRegistro, ...prev]);
-    showAlert("Sucesso", "Fechamento salvo no histórico! Você pode acessá-lo futuramente na aba 'Histórico'.");
+    showAlert("✅ Sucesso", "Fechamento salvo no histórico! Você pode acessá-lo futuramente na aba 'Histórico'.");
   };
 
   const restaurarHistorico = (registro) => {
@@ -874,7 +947,7 @@ export default function App() {
         setIncluirBeneficiosNoERP(snap.incluirBeneficiosNoERP ?? true);
         
         setActiveTab('erp');
-        showAlert("Restaurado", "Dados restaurados com sucesso! Você pode conferir os valores ou re-gerar os arquivos.");
+        showAlert("✅ Restaurado", "Dados restaurados com sucesso! Você pode conferir os valores ou re-gerar os arquivos.");
       }
     );
   };
@@ -885,15 +958,28 @@ export default function App() {
     });
   };
 
+  // ================= CONTADORES PARA EXIBIÇÃO =================
+  const getTotalERPInfo = () => {
+    const erpData = getERPDataHierarchico();
+    return {
+      empresas: erpData.length,
+      colaboradores: erpData.reduce((acc, e) => acc + e.subtotal.vidas, 0),
+      salario: erpData.reduce((acc, e) => acc + e.subtotal.salario, 0),
+      vt: erpData.reduce((acc, e) => acc + e.subtotal.vt, 0),
+      vr: erpData.reduce((acc, e) => acc + e.subtotal.vr, 0),
+      total: erpData.reduce((acc, e) => acc + e.subtotal.total, 0)
+    };
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-6 font-sans pb-20 relative">
       
       {/* Sistema de Modal Customizado */}
       {modalConfig.isOpen && (
         <div className="fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6 animate-fade-in border border-gray-100">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 animate-fade-in border border-gray-100">
             <h3 className="text-lg font-bold text-gray-900 mb-2">{modalConfig.title}</h3>
-            <p className="text-gray-600 mb-6 text-sm leading-relaxed">{modalConfig.message}</p>
+            <p className="text-gray-600 mb-6 text-sm leading-relaxed whitespace-pre-line">{modalConfig.message}</p>
             <div className="flex justify-end space-x-3">
               {modalConfig.type === 'confirm' && (
                 <button onClick={closeModal} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium transition-colors text-sm">
@@ -920,23 +1006,45 @@ export default function App() {
                 <p className="text-sm text-gray-600 mt-1">Colaboradores, Remessas, Benefícios, ERP e Histórico</p>
               </div>
             </div>
+            <div className="flex items-center space-x-3 mt-4 md:mt-0">
+              <button 
+                onClick={sincronizarDados}
+                className="px-3 py-2 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 flex items-center space-x-1 font-medium"
+                title="Sincronizar dados entre abas"
+              >
+                <RefreshCw className="w-4 h-4" />
+                <span>Sincronizar</span>
+              </button>
+              <button 
+                onClick={resetCompleto}
+                className="px-3 py-2 text-sm bg-red-100 text-red-600 rounded-lg hover:bg-red-200 flex items-center space-x-1 font-medium"
+                title="Limpar todos os dados do sistema"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Reset</span>
+              </button>
+            </div>
           </div>
           
           <div className="flex flex-wrap border-b border-gray-200">
             <button onClick={() => setActiveTab('colaboradores')} className={`flex-1 py-4 px-4 text-sm font-bold tracking-wide transition-colors flex justify-center items-center space-x-2 ${activeTab === 'colaboradores' ? 'text-blue-700 bg-blue-50 border-b-2 border-blue-600' : 'text-gray-500 hover:bg-gray-50'}`}>
               <Users className="w-5 h-5" /><span>Base Local</span>
+              {colaboradores.length > 0 && <span className="ml-1 px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs">{colaboradores.length}</span>}
             </button>
             <button onClick={() => setActiveTab('salario')} className={`flex-1 py-4 px-4 text-sm font-bold tracking-wide transition-colors flex justify-center items-center space-x-2 ${activeTab === 'salario' ? 'text-blue-700 bg-blue-50 border-b-2 border-blue-600' : 'text-gray-500 hover:bg-gray-50'}`}>
               <Calculator className="w-5 h-5" /><span>Salário / Adiant.</span>
+              {salarioData.length > 0 && <span className="ml-1 px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs">{salarioData.length}</span>}
             </button>
             <button onClick={() => setActiveTab('beneficios')} className={`flex-1 py-4 px-4 text-sm font-bold tracking-wide transition-colors flex justify-center items-center space-x-2 ${activeTab === 'beneficios' ? 'text-blue-700 bg-blue-50 border-b-2 border-blue-600' : 'text-gray-500 hover:bg-gray-50'}`}>
               <div className="flex items-center space-x-1"><Bus className="w-5 h-5" /><Coffee className="w-5 h-5" /></div><span>VT e VR</span>
+              {beneficiosData.length > 0 && <span className="ml-1 px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-xs">{beneficiosData.length}</span>}
             </button>
             <button onClick={() => setActiveTab('erp')} className={`flex-1 py-4 px-4 text-sm font-bold tracking-wide transition-colors flex justify-center items-center space-x-2 ${activeTab === 'erp' ? 'text-blue-700 bg-blue-50 border-b-2 border-blue-600' : 'text-gray-500 hover:bg-gray-50'}`}>
               <PieChart className="w-5 h-5" /><span>Resumo ERP</span>
             </button>
             <button onClick={() => setActiveTab('historico')} className={`flex-1 py-4 px-4 text-sm font-bold tracking-wide transition-colors flex justify-center items-center space-x-2 ${activeTab === 'historico' ? 'text-blue-700 bg-blue-50 border-b-2 border-blue-600' : 'text-gray-500 hover:bg-gray-50'}`}>
               <Clock className="w-5 h-5" /><span>Histórico</span>
+              {historico.length > 0 && <span className="ml-1 px-2 py-0.5 bg-gray-200 text-gray-700 rounded-full text-xs">{historico.length}</span>}
             </button>
           </div>
         </div>
@@ -949,6 +1057,10 @@ export default function App() {
                 <div>
                   <h2 className="text-lg font-semibold text-gray-800">Importar Planilha Simplificada</h2>
                   <p className="text-sm text-gray-500 mt-1">Matrícula, Nome, CPF, Banco, Agência, Conta, Valor VT, Centro de Custo, <strong className="text-blue-600">Empresa</strong>.</p>
+                  <p className="text-xs text-orange-600 mt-2 flex items-center">
+                    <AlertTriangle className="w-3 h-3 mr-1" />
+                    Importar nova planilha irá substituir todos os dados atuais.
+                  </p>
                 </div>
                 <div className="flex flex-col space-y-2 items-end">
                   <input type="file" accept=".xlsx, .xls" className="hidden" ref={fileInputCadastro} onChange={handleImportColaboradores} />
@@ -1007,38 +1119,52 @@ export default function App() {
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-bold text-gray-800">Banco de Dados Local ({colaboradores.length} pessoas)</h3>
-                <button onClick={() => showConfirm("Limpar Base", "Tem certeza que deseja limpar toda a base? Essa ação não pode ser desfeita.", () => setColaboradores([]))} className="text-red-500 text-sm font-medium hover:underline">
+                <button onClick={() => showConfirm("Limpar Base", "Tem certeza que deseja limpar toda a base de colaboradores? Os dados de salário e benefícios também serão limpos.", () => {
+                  setColaboradores([]);
+                  setSalarioData([]);
+                  setBeneficiosData([]);
+                  setBeneficiosOverrides({});
+                })} className="text-red-500 text-sm font-medium hover:underline">
                   Limpar Base
                 </button>
               </div>
-              <div className="overflow-x-auto max-h-[500px] border rounded-lg">
-                <table className="w-full text-sm text-left">
-                  <thead className="bg-gray-100 sticky top-0 text-xs uppercase text-gray-600">
-                    <tr>
-                      <th className="p-3">Matrícula</th>
-                      <th className="p-3">Nome</th>
-                      <th className="p-3"><Building2 className="w-4 h-4 inline mr-1"/>Empresa</th>
-                      <th className="p-3">C. Custo</th>
-                      <th className="p-3">Dados Bancários</th>
-                      <th className="p-3">VT Padrão</th>
-                      <th className="p-3">Ação</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {colaboradores.map((c, i) => (
-                      <tr key={i} className="border-b hover:bg-gray-50">
-                        <td className="p-3 font-mono">{c.matricula}</td>
-                        <td className="p-3 font-medium">{c.nome}</td>
-                        <td className="p-3 text-xs font-semibold text-blue-700">{c.empresa || 'NÃO INFORMADA'}</td>
-                        <td className="p-3 text-xs">{c.centroCusto}</td>
-                        <td className="p-3 text-xs text-gray-500">{c.banco} | Ag: {c.agencia} | CC: {c.conta}</td>
-                        <td className="p-3 font-semibold text-blue-600">{c.valorVT ? `R$ ${formatMoney(c.valorVT)}` : '-'}</td>
-                        <td className="p-3"><button onClick={() => removerColaborador(c.matricula)} className="text-red-500 hover:text-red-700 p-1" title="Excluir Colaborador"><Trash2 className="w-4 h-4" /></button></td>
+              
+              {colaboradores.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  <Users className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                  <p>Nenhum colaborador cadastrado.</p>
+                  <p className="text-sm mt-2">Importe uma planilha ou cadastre manualmente.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto max-h-[500px] border rounded-lg">
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-gray-100 sticky top-0 text-xs uppercase text-gray-600">
+                      <tr>
+                        <th className="p-3">Matrícula</th>
+                        <th className="p-3">Nome</th>
+                        <th className="p-3"><Building2 className="w-4 h-4 inline mr-1"/>Empresa</th>
+                        <th className="p-3">C. Custo</th>
+                        <th className="p-3">Dados Bancários</th>
+                        <th className="p-3">VT Padrão</th>
+                        <th className="p-3">Ação</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {colaboradores.map((c, i) => (
+                        <tr key={i} className="border-b hover:bg-gray-50">
+                          <td className="p-3 font-mono">{c.matricula}</td>
+                          <td className="p-3 font-medium">{c.nome}</td>
+                          <td className="p-3 text-xs font-semibold text-blue-700">{c.empresa || 'NÃO INFORMADA'}</td>
+                          <td className="p-3 text-xs">{c.centroCusto}</td>
+                          <td className="p-3 text-xs text-gray-500">{c.banco} | Ag: {c.agencia} | CC: {c.conta}</td>
+                          <td className="p-3 font-semibold text-blue-600">{c.valorVT ? `R$ ${formatMoney(c.valorVT)}` : '-'}</td>
+                          <td className="p-3"><button onClick={() => removerColaborador(c.matricula)} className="text-red-500 hover:text-red-700 p-1" title="Excluir Colaborador"><Trash2 className="w-4 h-4" /></button></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -1046,14 +1172,24 @@ export default function App() {
         {/* ================= ABA 2: SALÁRIO ================= */}
         {activeTab === 'salario' && (
           <div className="max-w-6xl mx-auto space-y-6 animate-fade-in">
+            {colaboradores.length === 0 && (
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 flex items-center space-x-3">
+                <AlertTriangle className="w-6 h-6 text-orange-500" />
+                <div>
+                  <p className="font-medium text-orange-800">Nenhum colaborador cadastrado</p>
+                  <p className="text-sm text-orange-600">Vá para a aba "Base Local" e importe ou cadastre os colaboradores primeiro.</p>
+                </div>
+              </div>
+            )}
+            
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center justify-center text-center">
               <div className={`p-4 rounded-full mb-4 ${espelhoFile ? 'bg-green-100' : 'bg-blue-50'}`}>
                 {espelhoFile ? <CheckCircle className="w-8 h-8 text-green-600" /> : <FileText className="w-8 h-8 text-blue-600" />}
               </div>
               <h2 className="text-lg font-semibold text-gray-800">1. Espelho de Salário (PDF)</h2>
-              <p className="text-xs text-gray-500 mt-2 mb-4">O sistema usará a base local de Colaboradores para cruzar as matrículas.</p>
+              <p className="text-xs text-gray-500 mt-2 mb-4">O sistema usará a base local de Colaboradores ({colaboradores.length}) para cruzar as matrículas.</p>
               <input type="file" accept=".pdf" className="hidden" ref={fileInputEspelho} onChange={(e) => setEspelhoFile(e.target.files[0])} />
-              <button onClick={() => fileInputEspelho.current.click()} className="px-6 py-2 text-sm font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100">
+              <button onClick={() => fileInputEspelho.current.click()} disabled={colaboradores.length === 0} className="px-6 py-2 text-sm font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 disabled:opacity-50">
                 {espelhoFile ? espelhoFile.name : 'Selecionar Arquivo PDF'}
               </button>
             </div>
@@ -1062,7 +1198,7 @@ export default function App() {
               <div className="flex justify-between w-full max-w-lg items-center">
                 <h3 className="text-lg font-semibold text-gray-800">2. Tipo de Pagamento</h3>
                 {salarioData.length > 0 && (
-                  <button onClick={() => showConfirm("Limpar Lançamentos", "Deseja remover os dados processados da tela de salário?", () => {setSalarioData([]); setEspelhoFile(null);})} className="text-xs text-red-500 hover:underline flex items-center"><RotateCcw className="w-3 h-3 mr-1"/> Limpar Tela</button>
+                  <button onClick={limparDadosSalario} className="text-xs text-red-500 hover:underline flex items-center"><RotateCcw className="w-3 h-3 mr-1"/> Limpar Tela</button>
                 )}
               </div>
               <div className="flex space-x-6">
@@ -1078,7 +1214,7 @@ export default function App() {
             </div>
 
             <div className="flex justify-center">
-              <button onClick={processarSalario} disabled={!espelhoFile || isProcessingSalario || !isReady} className="flex items-center space-x-2 px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow hover:bg-blue-700 disabled:opacity-50">
+              <button onClick={processarSalario} disabled={!espelhoFile || isProcessingSalario || !isReady || colaboradores.length === 0} className="flex items-center space-x-2 px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow hover:bg-blue-700 disabled:opacity-50">
                 {isProcessingSalario ? <span>Processando...</span> : !isReady ? <span>Carregando dependências...</span> : <><span>Processar Remessa Bancária</span><ArrowRight className="w-5 h-5" /></>}
               </button>
             </div>
@@ -1102,7 +1238,7 @@ export default function App() {
                       <div className="overflow-x-auto max-h-[400px] border rounded-lg">
                         <table className="w-full text-sm text-left">
                           <thead className="bg-gray-50 text-xs uppercase sticky top-0">
-                            <tr><th>Agência</th><th>Conta-Dig</th><th>Nome</th><th>CPF</th><th>Cód</th><th>Empresa</th><th>C. Custo</th><th className="text-right">Valor</th></tr>
+                            <tr><th className="p-2">Agência</th><th className="p-2">Conta-Dig</th><th className="p-2">Nome</th><th className="p-2">CPF</th><th className="p-2">Cód</th><th className="p-2">Empresa</th><th className="p-2">C. Custo</th><th className="p-2 text-right">Valor</th></tr>
                           </thead>
                           <tbody>
                             {salarioData.map((row, i) => (
@@ -1135,6 +1271,16 @@ export default function App() {
         {/* ================= ABA 3: BENEFÍCIOS (VT/VR) ================= */}
         {activeTab === 'beneficios' && (
           <div className="space-y-6 animate-fade-in w-full">
+            {colaboradores.length === 0 && (
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 flex items-center space-x-3">
+                <AlertTriangle className="w-6 h-6 text-orange-500" />
+                <div>
+                  <p className="font-medium text-orange-800">Nenhum colaborador cadastrado</p>
+                  <p className="text-sm text-orange-600">Vá para a aba "Base Local" e importe ou cadastre os colaboradores primeiro.</p>
+                </div>
+              </div>
+            )}
+            
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 max-w-6xl mx-auto">
               <h2 className="text-lg font-semibold text-gray-800 mb-4"><CalendarDays className="w-5 h-5 inline mr-2 text-blue-600" />Parâmetros do Período</h2>
               <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
@@ -1151,11 +1297,14 @@ export default function App() {
                 <h2 className="text-lg font-semibold flex items-center">
                   Lançamentos Individuais
                   {beneficiosData.length > 0 && (
-                    <button onClick={limparMesBeneficios} className="ml-4 text-xs font-normal text-red-500 hover:underline flex items-center"><RotateCcw className="w-3 h-3 mr-1"/> Limpar Dados</button>
+                    <span className="ml-2 text-sm font-normal text-gray-500">({beneficiosData.length} colaboradores)</span>
+                  )}
+                  {beneficiosData.length > 0 && (
+                    <button onClick={limparMesBeneficios} className="ml-4 text-xs font-normal text-red-500 hover:underline flex items-center"><RotateCcw className="w-3 h-3 mr-1"/> Limpar Lançamentos</button>
                   )}
                 </h2>
                 <div className="flex flex-wrap gap-2">
-                  <button onClick={carregarColaboradoresBeneficios} className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200">Carregar Base de Colaboradores</button>
+                  <button onClick={carregarColaboradoresBeneficios} disabled={colaboradores.length === 0} className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 disabled:opacity-50">Carregar Base de Colaboradores</button>
                   {beneficiosData.length > 0 && (
                     <>
                       <button onClick={exportBeneficiosBasePDF} className="px-3 py-2 bg-gray-600 text-white text-sm rounded-lg hover:bg-gray-700 flex items-center space-x-1"><FileText className="w-4 h-4" /><span>Relatório em PDF</span></button>
@@ -1201,19 +1350,19 @@ export default function App() {
                             />
                           </td>
                           <td className="p-1 text-center bg-red-50">
-                            <input type="number" min="0" value={beneficiosOverrides[item.matricula]?.ausencias || ''} onChange={(e) => updateOverride(item.matricula, 'ausencias', e.target.value)} className="w-12 border rounded p-1 text-center" />
+                            <input type="number" min="0" value={beneficiosOverrides[item.matricula]?.ausencias || ''} onChange={(e) => updateOverride(item.matricula, 'ausencias', e.target.value)} className="w-12 border rounded p-1 text-center" placeholder="0" />
                           </td>
                           <td className="p-1 text-center bg-red-50">
-                            <input type="number" min="0" value={beneficiosOverrides[item.matricula]?.descontoVT || ''} onChange={(e) => updateOverride(item.matricula, 'descontoVT', e.target.value)} className="w-12 border rounded p-1 text-center" />
+                            <input type="number" min="0" value={beneficiosOverrides[item.matricula]?.descontoVT || ''} onChange={(e) => updateOverride(item.matricula, 'descontoVT', e.target.value)} className="w-12 border rounded p-1 text-center" placeholder="0" />
                           </td>
                           <td className="p-1 text-center bg-red-50">
-                            <input type="number" min="0" value={beneficiosOverrides[item.matricula]?.descontoVR || ''} onChange={(e) => updateOverride(item.matricula, 'descontoVR', e.target.value)} className="w-12 border rounded p-1 text-center" />
+                            <input type="number" min="0" value={beneficiosOverrides[item.matricula]?.descontoVR || ''} onChange={(e) => updateOverride(item.matricula, 'descontoVR', e.target.value)} className="w-12 border rounded p-1 text-center" placeholder="0" />
                           </td>
                           <td className="p-1 text-center bg-green-50">
-                            <input type="number" min="0" value={beneficiosOverrides[item.matricula]?.acrescimosVT || ''} onChange={(e) => updateOverride(item.matricula, 'acrescimosVT', e.target.value)} className="w-12 border rounded p-1 text-center" />
+                            <input type="number" min="0" value={beneficiosOverrides[item.matricula]?.acrescimosVT || ''} onChange={(e) => updateOverride(item.matricula, 'acrescimosVT', e.target.value)} className="w-12 border rounded p-1 text-center" placeholder="0" />
                           </td>
                           <td className="p-1 text-center bg-green-50">
-                            <input type="number" min="0" value={beneficiosOverrides[item.matricula]?.acrescimosVR || ''} onChange={(e) => updateOverride(item.matricula, 'acrescimosVR', e.target.value)} className="w-12 border rounded p-1 text-center" />
+                            <input type="number" min="0" value={beneficiosOverrides[item.matricula]?.acrescimosVR || ''} onChange={(e) => updateOverride(item.matricula, 'acrescimosVR', e.target.value)} className="w-12 border rounded p-1 text-center" placeholder="0" />
                           </td>
                           <td className="p-2 text-right font-medium">{formatMoney(item.totalVT)}</td>
                           <td className="p-2 text-right font-medium">{formatMoney(item.totalVRLiquido)}</td>
@@ -1237,10 +1386,18 @@ export default function App() {
                 </div>
               )}
 
-              {beneficiosData.length === 0 && (
+              {beneficiosData.length === 0 && colaboradores.length > 0 && (
                 <div className="text-center py-12 text-gray-500">
                   <Users className="w-12 h-12 mx-auto mb-4 text-gray-300" />
                   <p>Clique em "Carregar Base de Colaboradores" para iniciar os lançamentos.</p>
+                </div>
+              )}
+              
+              {colaboradores.length === 0 && (
+                <div className="text-center py-12 text-gray-500">
+                  <Users className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                  <p>Nenhum colaborador na base.</p>
+                  <p className="text-sm mt-2">Importe colaboradores na aba "Base Local" primeiro.</p>
                 </div>
               )}
             </div>
@@ -1271,13 +1428,23 @@ export default function App() {
                     {incluirBeneficiosNoERP ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                     <span>{incluirBeneficiosNoERP ? 'Benefícios Incluídos' : 'Sem Benefícios'}</span>
                   </button>
-                  <button onClick={exportERPPDF} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium flex items-center space-x-2 hover:bg-blue-700">
+                  <button onClick={exportERPPDF} disabled={getERPDataHierarchico().length === 0} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium flex items-center space-x-2 hover:bg-blue-700 disabled:opacity-50">
                     <Download className="w-4 h-4" /><span>Exportar PDF</span>
                   </button>
-                  <button onClick={salvarFechamento} className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium flex items-center space-x-2 hover:bg-green-700">
+                  <button onClick={salvarFechamento} disabled={getERPDataHierarchico().length === 0} className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium flex items-center space-x-2 hover:bg-green-700 disabled:opacity-50">
                     <Save className="w-4 h-4" /><span>Salvar Fechamento</span>
                   </button>
                 </div>
+              </div>
+
+              {/* Informações sobre a fonte de dados */}
+              <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                <p className="text-sm text-blue-800">
+                  <strong>Fonte dos dados:</strong> 
+                  {salarioData.length > 0 && <span className="ml-2 px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs">Salários: {salarioData.length}</span>}
+                  {beneficiosData.length > 0 && incluirBeneficiosNoERP && <span className="ml-2 px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs">Benefícios: {beneficiosData.length}</span>}
+                  {salarioData.length === 0 && (!incluirBeneficiosNoERP || beneficiosData.length === 0) && <span className="ml-2 text-gray-500">Nenhum dado processado</span>}
+                </p>
               </div>
 
               {getERPDataHierarchico().length > 0 && (
@@ -1293,12 +1460,17 @@ export default function App() {
                   <PieChart className="w-12 h-12 mx-auto mb-4 text-gray-300" />
                   <p>Nenhum dado processado ainda.</p>
                   <p className="text-sm mt-2">Processe salários na aba "Salário / Adiant." ou benefícios na aba "VT e VR".</p>
+                  {!incluirBeneficiosNoERP && beneficiosData.length > 0 && (
+                    <p className="text-sm mt-2 text-orange-600">
+                      <AlertTriangle className="w-4 h-4 inline mr-1" />
+                      Você tem {beneficiosData.length} colaboradores com benefícios, mas a opção "Sem Benefícios" está ativa.
+                    </p>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-4">
                   {getERPDataHierarchico().map((empresaData, idx) => (
                     <div key={idx} className="border rounded-lg overflow-hidden">
-                      {/* Cabeçalho da Empresa (Clicável) */}
                       <button
                         onClick={() => toggleEmpresaExpand(empresaData.empresa)}
                         className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800 transition-colors"
@@ -1319,7 +1491,6 @@ export default function App() {
                         </div>
                       </button>
 
-                      {/* Tabela de Centros de Custo (Expansível) */}
                       {expandedEmpresas[empresaData.empresa] && (
                         <div className="bg-white">
                           <table className="w-full text-sm">
@@ -1363,19 +1534,29 @@ export default function App() {
 
                   {/* Total Geral Consolidado */}
                   <div className="bg-gradient-to-r from-green-600 to-green-700 rounded-lg p-4 text-white">
-                    <div className="flex justify-between items-center">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                       <div>
                         <h3 className="font-bold text-lg">TOTAL GERAL CONSOLIDADO</h3>
                         <p className="text-green-200 text-sm">
-                          {getERPDataHierarchico().length} empresa(s) | {getERPDataHierarchico().reduce((acc, e) => acc + e.subtotal.vidas, 0)} colaboradores
+                          {getTotalERPInfo().empresas} empresa(s) | {getTotalERPInfo().colaboradores} colaboradores
                         </p>
                       </div>
-                      <div className="text-right">
-                        <div className="grid grid-cols-4 gap-4 text-sm mb-2">
-                          <div><span className="text-green-200">Salário:</span><br/>R$ {formatMoney(getERPDataHierarchico().reduce((acc, e) => acc + e.subtotal.salario, 0))}</div>
-                          <div><span className="text-green-200">VT:</span><br/>R$ {formatMoney(getERPDataHierarchico().reduce((acc, e) => acc + e.subtotal.vt, 0))}</div>
-                          <div><span className="text-green-200">VR:</span><br/>R$ {formatMoney(getERPDataHierarchico().reduce((acc, e) => acc + e.subtotal.vr, 0))}</div>
-                          <div className="text-xl font-bold"><span className="text-green-200 text-sm">Total:</span><br/>R$ {formatMoney(getERPDataHierarchico().reduce((acc, e) => acc + e.subtotal.total, 0))}</div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div className="text-center">
+                          <span className="text-green-200 block text-xs">Salário</span>
+                          <span className="font-bold">R$ {formatMoney(getTotalERPInfo().salario)}</span>
+                        </div>
+                        <div className="text-center">
+                          <span className="text-green-200 block text-xs">VT</span>
+                          <span className="font-bold">R$ {formatMoney(getTotalERPInfo().vt)}</span>
+                        </div>
+                        <div className="text-center">
+                          <span className="text-green-200 block text-xs">VR</span>
+                          <span className="font-bold">R$ {formatMoney(getTotalERPInfo().vr)}</span>
+                        </div>
+                        <div className="text-center">
+                          <span className="text-green-200 block text-xs">Total</span>
+                          <span className="font-bold text-xl">R$ {formatMoney(getTotalERPInfo().total)}</span>
                         </div>
                       </div>
                     </div>
