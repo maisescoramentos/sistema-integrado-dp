@@ -1473,28 +1473,40 @@ export default function App() {
         {activeTab === 'historico' && (
           <div className="space-y-6 animate-fade-in">
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-              <h2 className="text-lg font-semibold text-gray-800 mb-4">Histórico de Fechamentos</h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-gray-800 flex items-center space-x-2">
+                  <Clock className="w-6 h-6 text-gray-600" />
+                  <span>Histórico de Fechamentos</span>
+                </h2>
+              </div>
               {historico.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">Nenhum fechamento salvo ainda. Processe os dados e salve na aba ERP.</p>
+                <div className="text-center py-12 text-gray-400">
+                  <Clock className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                  <p>Nenhum fechamento salvo ainda.</p>
+                  <p className="text-sm">Vá na aba "Resumo ERP" e clique em "Salvar Fechamento".</p>
+                </div>
               ) : (
                 <div className="space-y-4">
                   {historico.map((registro) => (
-                    <div key={registro.id} className="border rounded-lg p-4 hover:bg-gray-50">
-                      <div className="flex justify-between items-start">
-                        <div>
+                    <div key={registro.id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="flex-1">
                           <div className="flex items-center space-x-2">
-                            <Clock className="w-4 h-4 text-gray-500" />
-                            <span className="font-medium text-gray-800">{registro.dataHora}</span>
+                            <span className="text-sm font-bold text-gray-800">{registro.dataHora}</span>
+                            <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-medium">{registro.tipo}</span>
                           </div>
-                          <p className="text-sm text-gray-600 mt-1">{registro.tipo}</p>
-                          <p className="text-xs text-gray-500 mt-1">{registro.detalhes}</p>
+                          <p className="text-sm text-gray-600 mt-1">{registro.detalhes}</p>
+                          <p className="text-lg font-bold text-green-600 mt-2">Total: R$ {formatMoney(registro.valorTotal)}</p>
                         </div>
-                        <div className="text-right">
-                          <p className="text-lg font-bold text-green-700">R$ {formatMoney(registro.valorTotal)}</p>
-                          <div className="flex gap-2 mt-2">
-                            <button onClick={() => restaurarHistorico(registro)} className="text-xs px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200">Restaurar</button>
-                            <button onClick={() => excluirHistorico(registro.id)} className="text-xs px-3 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200">Excluir</button>
-                          </div>
+                        <div className="flex items-center space-x-2">
+                          <button onClick={() => restaurarHistorico(registro)} className="flex items-center space-x-1 px-3 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 font-medium text-sm">
+                            <RotateCcw className="w-4 h-4" />
+                            <span>Restaurar</span>
+                          </button>
+                          <button onClick={() => excluirHistorico(registro.id)} className="flex items-center space-x-1 px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 font-medium text-sm">
+                            <Trash2 className="w-4 h-4" />
+                            <span>Excluir</span>
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -1504,9 +1516,7 @@ export default function App() {
             </div>
           </div>
         )}
-      {/* Rodapé fixo */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 py-2 px-4 text-center text-xs text-gray-500">
-        Sistema Integrado de DP v1.0 | MAIS Escoramentos | Dados salvos automaticamente no navegador
+
       </div>
     </div>
   );
