@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, Download, AlertTriangle, FileSpreadsheet, CheckCircle, ArrowRight, FileText, CalendarDays, Calculator, Bus, Coffee, Users, PieChart, Plus, Trash2, Clock, RotateCcw, Save, Eye, EyeOff, Building2, ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
+import { Upload, Download, AlertTriangle, FileSpreadsheet, CheckCircle, ArrowRight, FileText, CalendarDays, Calculator, Bus, Coffee, Users, PieChart, Plus, Trash2, Clock, RotateCcw, Save, Eye, EyeOff, Building2, ChevronDown, ChevronRight, RefreshCw, BookOpen } from 'lucide-react';
 
 // ================= COMPONENTE DE INPUT MONETÁRIO INTELIGENTE =================
 const CurrencyInput = ({ value, onChange, className, placeholder }) => {
@@ -970,7 +970,7 @@ export default function App() {
       total: erpData.reduce((acc, e) => acc + e.subtotal.total, 0)
     };
   };
-
+  // ================= RENDER =================
   return (
     <div className="min-h-screen bg-gray-50 p-6 font-sans pb-20 relative">
       
@@ -1046,6 +1046,10 @@ export default function App() {
               <Clock className="w-5 h-5" /><span>Histórico</span>
               {historico.length > 0 && <span className="ml-1 px-2 py-0.5 bg-gray-200 text-gray-700 rounded-full text-xs">{historico.length}</span>}
             </button>
+            {/* ✅ NOVA ABA: DOCUMENTAÇÃO */}
+            <button onClick={() => setActiveTab('documentacao')} className={`flex-1 py-4 px-4 text-sm font-bold tracking-wide transition-colors flex justify-center items-center space-x-2 ${activeTab === 'documentacao' ? 'text-blue-700 bg-blue-50 border-b-2 border-blue-600' : 'text-gray-500 hover:bg-gray-50'}`}>
+              <BookOpen className="w-5 h-5" /><span>Documentação</span>
+            </button>
           </div>
         </div>
 
@@ -1119,46 +1123,41 @@ export default function App() {
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-bold text-gray-800">Banco de Dados Local ({colaboradores.length} pessoas)</h3>
-                <button onClick={() => showConfirm("Limpar Base", "Tem certeza que deseja limpar toda a base de colaboradores? Os dados de salário e benefícios também serão limpos.", () => {
-                  setColaboradores([]);
-                  setSalarioData([]);
-                  setBeneficiosData([]);
-                  setBeneficiosOverrides({});
-                })} className="text-red-500 text-sm font-medium hover:underline">
-                  Limpar Base
-                </button>
               </div>
-              
               {colaboradores.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">
-                  <Users className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                  <p>Nenhum colaborador cadastrado.</p>
-                  <p className="text-sm mt-2">Importe uma planilha ou cadastre manualmente.</p>
-                </div>
+                <p className="text-gray-500 text-center py-8">Nenhum colaborador cadastrado. Importe uma planilha ou cadastre manualmente.</p>
               ) : (
-                <div className="overflow-x-auto max-h-[500px] border rounded-lg">
-                  <table className="w-full text-sm text-left">
-                    <thead className="bg-gray-100 sticky top-0 text-xs uppercase text-gray-600">
+                <div className="overflow-x-auto max-h-[500px]">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-100 sticky top-0">
                       <tr>
-                        <th className="p-3">Matrícula</th>
-                        <th className="p-3">Nome</th>
-                        <th className="p-3"><Building2 className="w-4 h-4 inline mr-1"/>Empresa</th>
-                        <th className="p-3">C. Custo</th>
-                        <th className="p-3">Dados Bancários</th>
-                        <th className="p-3">VT Padrão</th>
-                        <th className="p-3">Ação</th>
+                        <th className="p-2 text-left">Mat</th>
+                        <th className="p-2 text-left">Nome</th>
+                        <th className="p-2 text-left">CPF</th>
+                        <th className="p-2 text-left">Empresa</th>
+                        <th className="p-2 text-left">Banco</th>
+                        <th className="p-2 text-left">Ag</th>
+                        <th className="p-2 text-left">Conta</th>
+                        <th className="p-2 text-right">VT</th>
+                        <th className="p-2 text-left">CC</th>
+                        <th className="p-2 text-center">Ações</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {colaboradores.map((c, i) => (
-                        <tr key={i} className="border-b hover:bg-gray-50">
-                          <td className="p-3 font-mono">{c.matricula}</td>
-                          <td className="p-3 font-medium">{c.nome}</td>
-                          <td className="p-3 text-xs font-semibold text-blue-700">{c.empresa || 'NÃO INFORMADA'}</td>
-                          <td className="p-3 text-xs">{c.centroCusto}</td>
-                          <td className="p-3 text-xs text-gray-500">{c.banco} | Ag: {c.agencia} | CC: {c.conta}</td>
-                          <td className="p-3 font-semibold text-blue-600">{c.valorVT ? `R$ ${formatMoney(c.valorVT)}` : '-'}</td>
-                          <td className="p-3"><button onClick={() => removerColaborador(c.matricula)} className="text-red-500 hover:text-red-700 p-1" title="Excluir Colaborador"><Trash2 className="w-4 h-4" /></button></td>
+                      {colaboradores.map((c, idx) => (
+                        <tr key={idx} className="border-t hover:bg-gray-50">
+                          <td className="p-2 font-mono text-xs">{c.matricula}</td>
+                          <td className="p-2 font-medium">{c.nome}</td>
+                          <td className="p-2 text-xs">{c.cpf}</td>
+                          <td className="p-2 text-xs">{c.empresa || '-'}</td>
+                          <td className="p-2">{c.banco}</td>
+                          <td className="p-2">{c.agencia}</td>
+                          <td className="p-2">{c.conta}</td>
+                          <td className="p-2 text-right">{c.valorVT ? `R$ ${formatMoney(c.valorVT)}` : '-'}</td>
+                          <td className="p-2">{c.centroCusto}</td>
+                          <td className="p-2 text-center">
+                            <button onClick={() => removerColaborador(c.matricula)} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4" /></button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -1171,359 +1170,266 @@ export default function App() {
 
         {/* ================= ABA 2: SALÁRIO ================= */}
         {activeTab === 'salario' && (
-          <div className="max-w-6xl mx-auto space-y-6 animate-fade-in">
-            {colaboradores.length === 0 && (
-              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 flex items-center space-x-3">
-                <AlertTriangle className="w-6 h-6 text-orange-500" />
+          <div className="space-y-6 animate-fade-in">
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <h2 className="text-lg font-semibold text-gray-800 mb-4">Processamento de Salário / Adiantamento</h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                 <div>
-                  <p className="font-medium text-orange-800">Nenhum colaborador cadastrado</p>
-                  <p className="text-sm text-orange-600">Vá para a aba "Base Local" e importe ou cadastre os colaboradores primeiro.</p>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Pagamento</label>
+                  <select value={paymentType} onChange={(e) => setPaymentType(e.target.value)} className="w-full border p-2 rounded">
+                    <option value="1">Salário</option>
+                    <option value="5">Adiantamento Salarial</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Espelho de Salário (PDF)</label>
+                  <input type="file" accept=".pdf" ref={fileInputEspelho} onChange={(e) => setEspelhoFile(e.target.files[0])} className="w-full border p-2 rounded text-sm" />
+                </div>
+                <div className="flex items-end gap-2">
+                  <button onClick={processarSalario} disabled={isProcessingSalario} className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 disabled:opacity-50">
+                    {isProcessingSalario ? <RefreshCw className="w-5 h-5 animate-spin" /> : <ArrowRight className="w-5 h-5" />}
+                    <span>{isProcessingSalario ? 'Processando...' : 'Processar'}</span>
+                  </button>
+                  {salarioData.length > 0 && (
+                    <button onClick={limparDadosSalario} className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300" title="Limpar dados">
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  )}
                 </div>
               </div>
-            )}
-            
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center justify-center text-center">
-              <div className={`p-4 rounded-full mb-4 ${espelhoFile ? 'bg-green-100' : 'bg-blue-50'}`}>
-                {espelhoFile ? <CheckCircle className="w-8 h-8 text-green-600" /> : <FileText className="w-8 h-8 text-blue-600" />}
-              </div>
-              <h2 className="text-lg font-semibold text-gray-800">1. Espelho de Salário (PDF)</h2>
-              <p className="text-xs text-gray-500 mt-2 mb-4">O sistema usará a base local de Colaboradores ({colaboradores.length}) para cruzar as matrículas.</p>
-              <input type="file" accept=".pdf" className="hidden" ref={fileInputEspelho} onChange={(e) => setEspelhoFile(e.target.files[0])} />
-              <button onClick={() => fileInputEspelho.current.click()} disabled={colaboradores.length === 0} className="px-6 py-2 text-sm font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 disabled:opacity-50">
-                {espelhoFile ? espelhoFile.name : 'Selecionar Arquivo PDF'}
-              </button>
+              {errorsSalario.length > 0 && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+                  {errorsSalario.map((err, idx) => (
+                    <p key={idx} className="text-yellow-800 text-sm flex items-center"><AlertTriangle className="w-4 h-4 mr-2" />{err}</p>
+                  ))}
+                </div>
+              )}
             </div>
 
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center justify-center space-y-4">
-              <div className="flex justify-between w-full max-w-lg items-center">
-                <h3 className="text-lg font-semibold text-gray-800">2. Tipo de Pagamento</h3>
-                {salarioData.length > 0 && (
-                  <button onClick={limparDadosSalario} className="text-xs text-red-500 hover:underline flex items-center"><RotateCcw className="w-3 h-3 mr-1"/> Limpar Tela</button>
-                )}
-              </div>
-              <div className="flex space-x-6">
-                <label className="flex items-center space-x-2 cursor-pointer">
-                  <input type="radio" value="1" checked={paymentType === '1'} onChange={(e) => setPaymentType(e.target.value)} className="w-5 h-5 text-blue-600" />
-                  <span className="text-gray-700 font-medium">Salário (Cód. 1)</span>
-                </label>
-                <label className="flex items-center space-x-2 cursor-pointer">
-                  <input type="radio" value="9" checked={paymentType === '9'} onChange={(e) => setPaymentType(e.target.value)} className="w-5 h-5 text-blue-600" />
-                  <span className="text-gray-700 font-medium">Adiantamento (Cód. 9)</span>
-                </label>
-              </div>
-            </div>
-
-            <div className="flex justify-center">
-              <button onClick={processarSalario} disabled={!espelhoFile || isProcessingSalario || !isReady || colaboradores.length === 0} className="flex items-center space-x-2 px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow hover:bg-blue-700 disabled:opacity-50">
-                {isProcessingSalario ? <span>Processando...</span> : !isReady ? <span>Carregando dependências...</span> : <><span>Processar Remessa Bancária</span><ArrowRight className="w-5 h-5" /></>}
-              </button>
-            </div>
-
-            {(salarioData.length > 0 || errorsSalario.length > 0) && (
+            {salarioData.length > 0 && (
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                {errorsSalario.length > 0 && (
-                  <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg text-sm text-orange-800">
-                    <AlertTriangle className="w-5 h-5 inline mr-2" /><strong>Avisos ({errorsSalario.length})</strong>
-                    <ul className="list-disc pl-5 mt-2 max-h-40 overflow-y-auto">{errorsSalario.map((err, i) => <li key={i}>{err}</li>)}</ul>
-                  </div>
-                )}
-                {salarioData.length > 0 && (() => {
-                  const totalSalario = salarioData.reduce((acc, row) => acc + (row.valor || 0), 0);
-                  return (
-                    <div>
-                      <div className="flex justify-between items-center mb-4">
-                        <p className="font-semibold">{salarioData.length} processados.</p>
-                        <button onClick={exportarArquivoBancoSalario} className="px-4 py-2 bg-green-600 text-white rounded-lg flex items-center space-x-2"><Download className="w-4 h-4"/><span>Baixar XLSX Banco</span></button>
-                      </div>
-                      <div className="overflow-x-auto max-h-[400px] border rounded-lg">
-                        <table className="w-full text-sm text-left">
-                          <thead className="bg-gray-50 text-xs uppercase sticky top-0">
-                            <tr><th className="p-2">Agência</th><th className="p-2">Conta-Dig</th><th className="p-2">Nome</th><th className="p-2">CPF</th><th className="p-2">Cód</th><th className="p-2">Empresa</th><th className="p-2">C. Custo</th><th className="p-2 text-right">Valor</th></tr>
-                          </thead>
-                          <tbody>
-                            {salarioData.map((row, i) => (
-                              <tr key={i} className="border-b">
-                                <td className="px-2 py-1">{row.agencia}</td><td className="px-2 py-1">{row.conta}-{row.digito}</td>
-                                <td className="px-2 py-1">{row.nome}</td><td className="px-2 py-1">{row.cpf}</td>
-                                <td className="px-2 py-1 text-center font-bold text-blue-600">{row.bancoCode}</td>
-                                <td className="px-2 py-1 text-xs text-blue-700 font-semibold">{row.empresa}</td>
-                                <td className="px-2 py-1 text-xs text-gray-500">{row.centroCusto}</td>
-                                <td className="px-2 py-1 text-right text-green-700 font-bold whitespace-nowrap">R$ {formatMoney(row.valor)}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                          <tfoot className="bg-gray-100 text-xs uppercase font-bold sticky bottom-0 border-t-2 border-gray-300 shadow-[0_-2px_4px_rgba(0,0,0,0.05)]">
-                            <tr>
-                              <td colSpan="7" className="px-2 py-3 text-right text-gray-700">Total da Folha:</td>
-                              <td className="px-2 py-3 text-right text-green-800 whitespace-nowrap">R$ {formatMoney(totalSalario)}</td>
-                            </tr>
-                          </tfoot>
-                        </table>
-                      </div>
-                    </div>
-                  );
-                })()}
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-bold text-gray-800">Resultado: {salarioData.length} pagamentos</h3>
+                  <button onClick={exportarArquivoBancoSalario} className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700">
+                    <Download className="w-5 h-5" /><span>Exportar Arquivo Banco</span>
+                  </button>
+                </div>
+                <div className="overflow-x-auto max-h-[400px]">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-100 sticky top-0">
+                      <tr>
+                        <th className="p-2 text-left">Ag</th>
+                        <th className="p-2 text-left">Conta</th>
+                        <th className="p-2 text-left">Dig</th>
+                        <th className="p-2 text-left">Nome</th>
+                        <th className="p-2 text-left">Empresa</th>
+                        <th className="p-2 text-right">Valor</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {salarioData.map((row, idx) => (
+                        <tr key={idx} className="border-t hover:bg-gray-50">
+                          <td className="p-2">{row.agencia}</td>
+                          <td className="p-2">{row.conta}</td>
+                          <td className="p-2">{row.digito}</td>
+                          <td className="p-2 font-medium">{row.nome}</td>
+                          <td className="p-2 text-xs">{row.empresa}</td>
+                          <td className="p-2 text-right font-bold text-green-700">R$ {formatMoney(row.valor)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="bg-green-50 font-bold">
+                      <tr>
+                        <td colSpan={5} className="p-2 text-right">TOTAL:</td>
+                        <td className="p-2 text-right text-green-700">R$ {formatMoney(salarioData.reduce((a, b) => a + b.valor, 0))}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
               </div>
             )}
           </div>
         )}
 
-        {/* ================= ABA 3: BENEFÍCIOS (VT/VR) ================= */}
+        {/* ================= ABA 3: BENEFÍCIOS ================= */}
         {activeTab === 'beneficios' && (
-          <div className="space-y-6 animate-fade-in w-full">
-            {colaboradores.length === 0 && (
-              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 flex items-center space-x-3">
-                <AlertTriangle className="w-6 h-6 text-orange-500" />
+          <div className="space-y-6 animate-fade-in">
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <h2 className="text-lg font-semibold text-gray-800 mb-4">Configuração do Período e Valores</h2>
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                 <div>
-                  <p className="font-medium text-orange-800">Nenhum colaborador cadastrado</p>
-                  <p className="text-sm text-orange-600">Vá para a aba "Base Local" e importe ou cadastre os colaboradores primeiro.</p>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Data Início</label>
+                  <input type="date" value={periodo.start} onChange={(e) => setPeriodo({...periodo, start: e.target.value})} className="w-full border p-2 rounded" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Data Fim</label>
+                  <input type="date" value={periodo.end} onChange={(e) => setPeriodo({...periodo, end: e.target.value})} className="w-full border p-2 rounded" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Feriados no Período</label>
+                  <input type="number" min="0" value={periodo.feriados} onChange={(e) => setPeriodo({...periodo, feriados: e.target.value})} className="w-full border p-2 rounded" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Dias Úteis (calculado)</label>
+                  <div className="w-full border p-2 rounded bg-blue-50 text-blue-700 font-bold text-center">{diasUteisBase}</div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">VR Diário Padrão (R$)</label>
+                  <CurrencyInput value={valorVRDiario} onChange={setValorVRDiario} className="w-full border p-2 rounded" placeholder="Ex: 45,00" />
                 </div>
               </div>
-            )}
-            
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 max-w-6xl mx-auto">
-              <h2 className="text-lg font-semibold text-gray-800 mb-4"><CalendarDays className="w-5 h-5 inline mr-2 text-blue-600" />Parâmetros do Período</h2>
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
-                <div><label className="text-sm">Data Inicial</label><input type="date" value={periodo.start} onChange={e => setPeriodo({...periodo, start: e.target.value})} className="w-full border p-2 rounded focus:ring-blue-500"/></div>
-                <div><label className="text-sm">Data Final</label><input type="date" value={periodo.end} onChange={e => setPeriodo({...periodo, end: e.target.value})} className="w-full border p-2 rounded focus:ring-blue-500"/></div>
-                <div><label className="text-sm">Feriados</label><input type="number" min="0" value={periodo.feriados} onChange={e => setPeriodo({...periodo, feriados: e.target.value})} className="w-full border p-2 rounded focus:ring-blue-500"/></div>
-                <div><label className="text-sm">Valor Diário VR</label><CurrencyInput value={valorVRDiario} onChange={setValorVRDiario} className="w-full border p-2 rounded bg-blue-50 font-bold"/></div>
-                <div className="bg-blue-100 rounded p-2 text-center h-full flex flex-col justify-center"><span className="text-xs uppercase">Dias Úteis</span><span className="text-2xl font-bold text-blue-800">{diasUteisBase}</span></div>
+              <div className="flex gap-3 mt-4">
+                <button onClick={carregarColaboradoresBeneficios} className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700">
+                  <Users className="w-5 h-5" /><span>Carregar Base</span>
+                </button>
+                {beneficiosData.length > 0 && (
+                  <button onClick={limparMesBeneficios} className="flex items-center space-x-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">
+                    <RotateCcw className="w-5 h-5" /><span>Zerar Lançamentos</span>
+                  </button>
+                )}
               </div>
             </div>
 
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-semibold flex items-center">
-                  Lançamentos Individuais
-                  {beneficiosData.length > 0 && (
-                    <span className="ml-2 text-sm font-normal text-gray-500">({beneficiosData.length} colaboradores)</span>
-                  )}
-                  {beneficiosData.length > 0 && (
-                    <button onClick={limparMesBeneficios} className="ml-4 text-xs font-normal text-red-500 hover:underline flex items-center"><RotateCcw className="w-3 h-3 mr-1"/> Limpar Lançamentos</button>
-                  )}
-                </h2>
-                <div className="flex flex-wrap gap-2">
-                  <button onClick={carregarColaboradoresBeneficios} disabled={colaboradores.length === 0} className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 disabled:opacity-50">Carregar Base de Colaboradores</button>
-                  {beneficiosData.length > 0 && (
-                    <>
-                      <button onClick={exportBeneficiosBasePDF} className="px-3 py-2 bg-gray-600 text-white text-sm rounded-lg hover:bg-gray-700 flex items-center space-x-1"><FileText className="w-4 h-4" /><span>Relatório em PDF</span></button>
-                      <button onClick={exportVTBankFile} className="px-3 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 flex items-center space-x-1"><Download className="w-4 h-4" /><span>Arquivo Itaú VT</span></button>
-                      <button onClick={exportVRSolidesFile} className="px-3 py-2 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 flex items-center space-x-1"><Download className="w-4 h-4" /><span>Arquivo Solides VR</span></button>
-                      <button onClick={generateReceiptsPDF} className="px-3 py-2 bg-amber-600 text-white text-sm rounded-lg hover:bg-amber-700 flex items-center space-x-1"><FileText className="w-4 h-4" /><span>Recibos Individuais</span></button>
-                    </>
-                  )}
+            {beneficiosData.length > 0 && (
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-bold text-gray-800">Lançamentos de Benefícios ({beneficiosData.length} colaboradores)</h3>
+                  <div className="flex gap-2">
+                    <button onClick={exportBeneficiosBasePDF} className="flex items-center space-x-1 px-3 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 text-sm">
+                      <FileText className="w-4 h-4" /><span>PDF Base</span>
+                    </button>
+                    <button onClick={exportVTBankFile} className="flex items-center space-x-1 px-3 py-2 bg-orange-500 text-white font-medium rounded-lg hover:bg-orange-600 text-sm">
+                      <Download className="w-4 h-4" /><span>VT Banco</span>
+                    </button>
+                    <button onClick={exportVRSolidesFile} className="flex items-center space-x-1 px-3 py-2 bg-teal-500 text-white font-medium rounded-lg hover:bg-teal-600 text-sm">
+                      <Download className="w-4 h-4" /><span>VR Solides</span>
+                    </button>
+                    <button onClick={generateReceiptsPDF} className="flex items-center space-x-1 px-3 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 text-sm">
+                      <FileText className="w-4 h-4" /><span>Recibos</span>
+                    </button>
+                  </div>
                 </div>
-              </div>
-
-              {beneficiosData.length > 0 && (
-                <div className="overflow-x-auto max-h-[500px] border rounded-lg">
-                  <table className="w-full text-xs text-left">
-                    <thead className="bg-gray-100 sticky top-0 text-xs uppercase text-gray-600">
+                <div className="overflow-x-auto max-h-[500px]">
+                  <table className="w-full text-xs">
+                    <thead className="bg-gray-100 sticky top-0">
                       <tr>
-                        <th className="p-2">Mat</th>
-                        <th className="p-2">Nome</th>
-                        <th className="p-2">Empresa</th>
-                        <th className="p-2 text-center">VT Dia (R$)</th>
-                        <th className="p-2 text-center bg-red-50">Faltas</th>
-                        <th className="p-2 text-center bg-red-50">Desc VT</th>
-                        <th className="p-2 text-center bg-red-50">Desc VR</th>
-                        <th className="p-2 text-center bg-green-50">+ VT</th>
-                        <th className="p-2 text-center bg-green-50">+ VR</th>
+                        <th className="p-2 text-left">Mat</th>
+                        <th className="p-2 text-left">Nome</th>
+                        <th className="p-2 text-left">Empresa</th>
+                        <th className="p-2 text-center">VT Diário</th>
+                        <th className="p-2 text-center">Faltas</th>
+                        <th className="p-2 text-center">Desc VT</th>
+                        <th className="p-2 text-center">Desc VR</th>
+                        <th className="p-2 text-center">Acrés VT</th>
+                        <th className="p-2 text-center">Acrés VR</th>
                         <th className="p-2 text-right">Total VT</th>
                         <th className="p-2 text-right">Total VR</th>
                         <th className="p-2 text-right font-bold">Total</th>
-                        <th className="p-2">Obs</th>
+                        <th className="p-2 text-left">Obs</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {calcBeneficios().map((item, i) => (
-                        <tr key={i} className="border-b hover:bg-gray-50">
-                          <td className="p-2 font-mono">{item.matricula}</td>
-                          <td className="p-2">{item.nome.substring(0, 20)}</td>
-                          <td className="p-2 text-blue-700 font-semibold text-xs">{item.empresa ? item.empresa.substring(0, 12) : '-'}</td>
-                          <td className="p-1 text-center">
-                            <CurrencyInput
-                              value={beneficiosOverrides[item.matricula]?.valorVT ?? item.valorVT}
-                              onChange={(val) => updateOverride(item.matricula, 'valorVT', val)}
-                              className="w-16 border rounded p-1 text-center text-xs"
-                            />
-                          </td>
-                          <td className="p-1 text-center bg-red-50">
-                            <input type="number" min="0" value={beneficiosOverrides[item.matricula]?.ausencias || ''} onChange={(e) => updateOverride(item.matricula, 'ausencias', e.target.value)} className="w-12 border rounded p-1 text-center" placeholder="0" />
-                          </td>
-                          <td className="p-1 text-center bg-red-50">
-                            <input type="number" min="0" value={beneficiosOverrides[item.matricula]?.descontoVT || ''} onChange={(e) => updateOverride(item.matricula, 'descontoVT', e.target.value)} className="w-12 border rounded p-1 text-center" placeholder="0" />
-                          </td>
-                          <td className="p-1 text-center bg-red-50">
-                            <input type="number" min="0" value={beneficiosOverrides[item.matricula]?.descontoVR || ''} onChange={(e) => updateOverride(item.matricula, 'descontoVR', e.target.value)} className="w-12 border rounded p-1 text-center" placeholder="0" />
-                          </td>
-                          <td className="p-1 text-center bg-green-50">
-                            <input type="number" min="0" value={beneficiosOverrides[item.matricula]?.acrescimosVT || ''} onChange={(e) => updateOverride(item.matricula, 'acrescimosVT', e.target.value)} className="w-12 border rounded p-1 text-center" placeholder="0" />
-                          </td>
-                          <td className="p-1 text-center bg-green-50">
-                            <input type="number" min="0" value={beneficiosOverrides[item.matricula]?.acrescimosVR || ''} onChange={(e) => updateOverride(item.matricula, 'acrescimosVR', e.target.value)} className="w-12 border rounded p-1 text-center" placeholder="0" />
-                          </td>
-                          <td className="p-2 text-right font-medium">{formatMoney(item.totalVT)}</td>
-                          <td className="p-2 text-right font-medium">{formatMoney(item.totalVRLiquido)}</td>
-                          <td className="p-2 text-right font-bold text-green-700">{formatMoney(item.totalGeral)}</td>
-                          <td className="p-1">
-                            <input type="text" value={beneficiosOverrides[item.matricula]?.obs || ''} onChange={(e) => updateOverride(item.matricula, 'obs', e.target.value)} className="w-24 border rounded p-1 text-xs" placeholder="Obs..." />
-                          </td>
-                        </tr>
-                      ))}
+                      {calcBeneficios().map((item, idx) => {
+                        const overrides = beneficiosOverrides[item.matricula] || {};
+                        return (
+                          <tr key={idx} className="border-t hover:bg-gray-50">
+                            <td className="p-1 font-mono">{item.matricula}</td>
+                            <td className="p-1 font-medium truncate max-w-[150px]">{item.nome}</td>
+                            <td className="p-1 truncate max-w-[100px]">{item.empresa || '-'}</td>
+                            <td className="p-1"><CurrencyInput value={overrides.valorVT || ''} onChange={(v) => updateOverride(item.matricula, 'valorVT', v)} className="w-16 border p-1 rounded text-center text-xs" /></td>
+                            <td className="p-1"><input type="number" min="0" value={overrides.ausencias || ''} onChange={(e) => updateOverride(item.matricula, 'ausencias', e.target.value)} className="w-12 border p-1 rounded text-center" /></td>
+                            <td className="p-1"><input type="number" min="0" value={overrides.descontoVT || ''} onChange={(e) => updateOverride(item.matricula, 'descontoVT', e.target.value)} className="w-12 border p-1 rounded text-center" /></td>
+                            <td className="p-1"><input type="number" min="0" value={overrides.descontoVR || ''} onChange={(e) => updateOverride(item.matricula, 'descontoVR', e.target.value)} className="w-12 border p-1 rounded text-center" /></td>
+                            <td className="p-1"><input type="number" min="0" value={overrides.acrescimosVT || ''} onChange={(e) => updateOverride(item.matricula, 'acrescimosVT', e.target.value)} className="w-12 border p-1 rounded text-center" /></td>
+                            <td className="p-1"><input type="number" min="0" value={overrides.acrescimosVR || ''} onChange={(e) => updateOverride(item.matricula, 'acrescimosVR', e.target.value)} className="w-12 border p-1 rounded text-center" /></td>
+                            <td className="p-1 text-right text-orange-600">R$ {formatMoney(item.totalVT)}</td>
+                            <td className="p-1 text-right text-teal-600">R$ {formatMoney(item.totalVRLiquido)}</td>
+                            <td className="p-1 text-right font-bold text-green-700">R$ {formatMoney(item.totalGeral)}</td>
+                            <td className="p-1"><input type="text" value={overrides.obs || ''} onChange={(e) => updateOverride(item.matricula, 'obs', e.target.value)} className="w-24 border p-1 rounded text-xs" placeholder="Obs..." /></td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
-                    <tfoot className="bg-gray-100 text-xs font-bold sticky bottom-0 border-t-2">
+                    <tfoot className="bg-green-50 font-bold">
                       <tr>
-                        <td colSpan="9" className="p-2 text-right">TOTAIS:</td>
-                        <td className="p-2 text-right">{formatMoney(calcBeneficios().reduce((acc, i) => acc + i.totalVT, 0))}</td>
-                        <td className="p-2 text-right">{formatMoney(calcBeneficios().reduce((acc, i) => acc + i.totalVRLiquido, 0))}</td>
-                        <td className="p-2 text-right text-green-700">{formatMoney(calcBeneficios().reduce((acc, i) => acc + i.totalGeral, 0))}</td>
+                        <td colSpan={9} className="p-2 text-right">TOTAIS:</td>
+                        <td className="p-2 text-right text-orange-600">R$ {formatMoney(calcBeneficios().reduce((a, b) => a + b.totalVT, 0))}</td>
+                        <td className="p-2 text-right text-teal-600">R$ {formatMoney(calcBeneficios().reduce((a, b) => a + b.totalVRLiquido, 0))}</td>
+                        <td className="p-2 text-right text-green-700">R$ {formatMoney(calcBeneficios().reduce((a, b) => a + b.totalGeral, 0))}</td>
                         <td></td>
                       </tr>
                     </tfoot>
                   </table>
                 </div>
-              )}
-
-              {beneficiosData.length === 0 && colaboradores.length > 0 && (
-                <div className="text-center py-12 text-gray-500">
-                  <Users className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                  <p>Clique em "Carregar Base de Colaboradores" para iniciar os lançamentos.</p>
-                </div>
-              )}
-              
-              {colaboradores.length === 0 && (
-                <div className="text-center py-12 text-gray-500">
-                  <Users className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                  <p>Nenhum colaborador na base.</p>
-                  <p className="text-sm mt-2">Importe colaboradores na aba "Base Local" primeiro.</p>
-                </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         )}
 
-        {/* ================= ABA 4: RESUMO ERP ================= */}
+        {/* ================= ABA 4: ERP ================= */}
         {activeTab === 'erp' && (
           <div className="space-y-6 animate-fade-in">
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-                <div>
-                  <h2 className="text-xl font-bold text-gray-800 flex items-center">
-                    <PieChart className="w-6 h-6 mr-2 text-blue-600" />
-                    Resumo Gerencial por Empresa e Centro de Custo
-                  </h2>
-                  <p className="text-sm text-gray-500 mt-1">Dados consolidados automaticamente a partir dos lançamentos de salário e benefícios.</p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => setIncluirBeneficiosNoERP(!incluirBeneficiosNoERP)}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center space-x-2 transition-colors ${
-                      incluirBeneficiosNoERP 
-                        ? 'bg-green-100 text-green-700 border border-green-300' 
-                        : 'bg-gray-100 text-gray-600 border border-gray-300'
-                    }`}
-                  >
-                    {incluirBeneficiosNoERP ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                    <span>{incluirBeneficiosNoERP ? 'Benefícios Incluídos' : 'Sem Benefícios'}</span>
-                  </button>
-                  <button onClick={exportERPPDF} disabled={getERPDataHierarchico().length === 0} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium flex items-center space-x-2 hover:bg-blue-700 disabled:opacity-50">
-                    <Download className="w-4 h-4" /><span>Exportar PDF</span>
-                  </button>
-                  <button onClick={salvarFechamento} disabled={getERPDataHierarchico().length === 0} className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium flex items-center space-x-2 hover:bg-green-700 disabled:opacity-50">
-                    <Save className="w-4 h-4" /><span>Salvar Fechamento</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Informações sobre a fonte de dados */}
-              <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
-                <p className="text-sm text-blue-800">
-                  <strong>Fonte dos dados:</strong> 
-                  {salarioData.length > 0 && <span className="ml-2 px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs">Salários: {salarioData.length}</span>}
-                  {beneficiosData.length > 0 && incluirBeneficiosNoERP && <span className="ml-2 px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs">Benefícios: {beneficiosData.length}</span>}
-                  {salarioData.length === 0 && (!incluirBeneficiosNoERP || beneficiosData.length === 0) && <span className="ml-2 text-gray-500">Nenhum dado processado</span>}
-                </p>
-              </div>
-
-              {getERPDataHierarchico().length > 0 && (
-                <div className="mb-4 flex gap-2">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-semibold text-gray-800">Resumo ERP por Empresa e Centro de Custo</h2>
+                <div className="flex items-center gap-4">
+                  <label className="flex items-center space-x-2 cursor-pointer">
+                    <input type="checkbox" checked={incluirBeneficiosNoERP} onChange={(e) => setIncluirBeneficiosNoERP(e.target.checked)} className="w-4 h-4" />
+                    <span className="text-sm text-gray-700">Incluir VT/VR</span>
+                  </label>
                   <button onClick={expandirTodasEmpresas} className="text-xs text-blue-600 hover:underline">Expandir Todas</button>
-                  <span className="text-gray-300">|</span>
                   <button onClick={recolherTodasEmpresas} className="text-xs text-blue-600 hover:underline">Recolher Todas</button>
                 </div>
-              )}
+              </div>
 
               {getERPDataHierarchico().length === 0 ? (
-                <div className="text-center py-12 text-gray-500">
-                  <PieChart className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                  <p>Nenhum dado processado ainda.</p>
-                  <p className="text-sm mt-2">Processe salários na aba "Salário / Adiant." ou benefícios na aba "VT e VR".</p>
-                  {!incluirBeneficiosNoERP && beneficiosData.length > 0 && (
-                    <p className="text-sm mt-2 text-orange-600">
-                      <AlertTriangle className="w-4 h-4 inline mr-1" />
-                      Você tem {beneficiosData.length} colaboradores com benefícios, mas a opção "Sem Benefícios" está ativa.
-                    </p>
-                  )}
-                </div>
+                <p className="text-gray-500 text-center py-8">Nenhum dado disponível. Processe salários e/ou benefícios primeiro.</p>
               ) : (
                 <div className="space-y-4">
                   {getERPDataHierarchico().map((empresaData, idx) => (
                     <div key={idx} className="border rounded-lg overflow-hidden">
-                      <button
-                        onClick={() => toggleEmpresaExpand(empresaData.empresa)}
-                        className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800 transition-colors"
-                      >
-                        <div className="flex items-center space-x-3">
-                          {expandedEmpresas[empresaData.empresa] ? (
-                            <ChevronDown className="w-5 h-5" />
-                          ) : (
-                            <ChevronRight className="w-5 h-5" />
-                          )}
-                          <Building2 className="w-5 h-5" />
-                          <span className="font-bold text-lg">{empresaData.empresa}</span>
-                          <span className="text-blue-200 text-sm">({empresaData.subtotal.vidas} colaboradores)</span>
+                      <div onClick={() => toggleEmpresaExpand(empresaData.empresa)} className="flex justify-between items-center p-4 bg-blue-50 cursor-pointer hover:bg-blue-100">
+                        <div className="flex items-center space-x-2">
+                          {expandedEmpresas[empresaData.empresa] ? <ChevronDown className="w-5 h-5 text-blue-600" /> : <ChevronRight className="w-5 h-5 text-blue-600" />}
+                          <Building2 className="w-5 h-5 text-blue-600" />
+                          <span className="font-bold text-gray-800">{empresaData.empresa}</span>
+                          <span className="text-sm text-gray-500">({empresaData.subtotal.vidas} colaboradores)</span>
                         </div>
-                        <div className="text-right">
-                          <span className="text-sm text-blue-200">Subtotal:</span>
-                          <span className="ml-2 font-bold text-lg">R$ {formatMoney(empresaData.subtotal.total)}</span>
-                        </div>
-                      </button>
-
+                        <span className="font-bold text-green-700">R$ {formatMoney(empresaData.subtotal.total)}</span>
+                      </div>
                       {expandedEmpresas[empresaData.empresa] && (
-                        <div className="bg-white">
+                        <div className="p-4">
                           <table className="w-full text-sm">
-                            <thead className="bg-gray-100 text-xs uppercase text-gray-600">
+                            <thead className="bg-gray-100">
                               <tr>
-                                <th className="p-3 text-left">Centro de Custo</th>
-                                <th className="p-3 text-center">Qtd</th>
-                                <th className="p-3 text-right">Salário/Adiant.</th>
-                                <th className="p-3 text-right">Vale Transporte</th>
-                                <th className="p-3 text-right">Vale Refeição</th>
-                                <th className="p-3 text-right font-bold">Total</th>
+                                <th className="p-2 text-left">Centro de Custo</th>
+                                <th className="p-2 text-center">Qtd</th>
+                                <th className="p-2 text-right">Salário</th>
+                                <th className="p-2 text-right">VT</th>
+                                <th className="p-2 text-right">VR</th>
+                                <th className="p-2 text-right font-bold">Total</th>
                               </tr>
                             </thead>
                             <tbody>
                               {empresaData.centrosCusto.map((cc, ccIdx) => (
-                                <tr key={ccIdx} className="border-b hover:bg-gray-50">
-                                  <td className="p-3 font-medium">{cc.centroCusto}</td>
-                                  <td className="p-3 text-center">{cc.vidas}</td>
-                                  <td className="p-3 text-right">{formatMoney(cc.salario)}</td>
-                                  <td className="p-3 text-right">{formatMoney(cc.vt)}</td>
-                                  <td className="p-3 text-right">{formatMoney(cc.vr)}</td>
-                                  <td className="p-3 text-right font-bold text-green-700">{formatMoney(cc.total)}</td>
+                                <tr key={ccIdx} className="border-t">
+                                  <td className="p-2">{cc.centroCusto}</td>
+                                  <td className="p-2 text-center">{cc.vidas}</td>
+                                  <td className="p-2 text-right">R$ {formatMoney(cc.salario)}</td>
+                                  <td className="p-2 text-right">R$ {formatMoney(cc.vt)}</td>
+                                  <td className="p-2 text-right">R$ {formatMoney(cc.vr)}</td>
+                                  <td className="p-2 text-right font-bold text-green-700">R$ {formatMoney(cc.total)}</td>
                                 </tr>
                               ))}
                             </tbody>
-                            <tfoot className="bg-blue-50">
-                              <tr className="font-bold text-blue-800">
-                                <td className="p-3">Subtotal {empresaData.empresa.substring(0, 20)}</td>
-                                <td className="p-3 text-center">{empresaData.subtotal.vidas}</td>
-                                <td className="p-3 text-right">{formatMoney(empresaData.subtotal.salario)}</td>
-                                <td className="p-3 text-right">{formatMoney(empresaData.subtotal.vt)}</td>
-                                <td className="p-3 text-right">{formatMoney(empresaData.subtotal.vr)}</td>
-                                <td className="p-3 text-right">{formatMoney(empresaData.subtotal.total)}</td>
+                            <tfoot className="bg-blue-50 font-bold">
+                              <tr>
+                                <td className="p-2">Subtotal {empresaData.empresa.substring(0, 15)}...</td>
+                                <td className="p-2 text-center">{empresaData.subtotal.vidas}</td>
+                                <td className="p-2 text-right">R$ {formatMoney(empresaData.subtotal.salario)}</td>
+                                <td className="p-2 text-right">R$ {formatMoney(empresaData.subtotal.vt)}</td>
+                                <td className="p-2 text-right">R$ {formatMoney(empresaData.subtotal.vr)}</td>
+                                <td className="p-2 text-right text-green-700">R$ {formatMoney(empresaData.subtotal.total)}</td>
                               </tr>
                             </tfoot>
                           </table>
@@ -1532,34 +1438,24 @@ export default function App() {
                     </div>
                   ))}
 
-                  {/* Total Geral Consolidado */}
-                  <div className="bg-gradient-to-r from-green-600 to-green-700 rounded-lg p-4 text-white">
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                  {/* Total Geral */}
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div className="flex justify-between items-center">
                       <div>
-                        <h3 className="font-bold text-lg">TOTAL GERAL CONSOLIDADO</h3>
-                        <p className="text-green-200 text-sm">
-                          {getTotalERPInfo().empresas} empresa(s) | {getTotalERPInfo().colaboradores} colaboradores
-                        </p>
+                        <span className="font-bold text-gray-800">TOTAL GERAL CONSOLIDADO</span>
+                        <span className="ml-2 text-sm text-gray-500">({getTotalERPInfo().empresas} empresas | {getTotalERPInfo().colaboradores} colaboradores)</span>
                       </div>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                        <div className="text-center">
-                          <span className="text-green-200 block text-xs">Salário</span>
-                          <span className="font-bold">R$ {formatMoney(getTotalERPInfo().salario)}</span>
-                        </div>
-                        <div className="text-center">
-                          <span className="text-green-200 block text-xs">VT</span>
-                          <span className="font-bold">R$ {formatMoney(getTotalERPInfo().vt)}</span>
-                        </div>
-                        <div className="text-center">
-                          <span className="text-green-200 block text-xs">VR</span>
-                          <span className="font-bold">R$ {formatMoney(getTotalERPInfo().vr)}</span>
-                        </div>
-                        <div className="text-center">
-                          <span className="text-green-200 block text-xs">Total</span>
-                          <span className="font-bold text-xl">R$ {formatMoney(getTotalERPInfo().total)}</span>
-                        </div>
-                      </div>
+                      <span className="text-xl font-bold text-green-700">R$ {formatMoney(getTotalERPInfo().total)}</span>
                     </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button onClick={exportERPPDF} className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700">
+                      <FileText className="w-5 h-5" /><span>Exportar PDF</span>
+                    </button>
+                    <button onClick={salvarFechamento} className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700">
+                      <Save className="w-5 h-5" /><span>Salvar no Histórico</span>
+                    </button>
                   </div>
                 </div>
               )}
@@ -1571,60 +1467,28 @@ export default function App() {
         {activeTab === 'historico' && (
           <div className="space-y-6 animate-fade-in">
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-              <div className="flex justify-between items-center mb-6">
-                <div>
-                  <h2 className="text-xl font-bold text-gray-800 flex items-center">
-                    <Clock className="w-6 h-6 mr-2 text-blue-600" />
-                    Histórico de Fechamentos
-                  </h2>
-                  <p className="text-sm text-gray-500 mt-1">Restaure fechamentos anteriores ou consulte valores já processados.</p>
-                </div>
-                {historico.length > 0 && (
-                  <button 
-                    onClick={() => showConfirm("Limpar Histórico", "Tem certeza que deseja apagar todo o histórico? Esta ação não pode ser desfeita.", () => setHistorico([]))} 
-                    className="text-red-500 text-sm hover:underline"
-                  >
-                    Limpar Todo Histórico
-                  </button>
-                )}
-              </div>
-
+              <h2 className="text-lg font-semibold text-gray-800 mb-4">Histórico de Fechamentos</h2>
               {historico.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">
-                  <Clock className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                  <p>Nenhum fechamento salvo ainda.</p>
-                  <p className="text-sm mt-2">Vá até a aba "Resumo ERP" e clique em "Salvar Fechamento" para criar um registro.</p>
-                </div>
+                <p className="text-gray-500 text-center py-8">Nenhum fechamento salvo ainda. Processe os dados e salve na aba ERP.</p>
               ) : (
                 <div className="space-y-4">
                   {historico.map((registro) => (
-                    <div key={registro.id} className="border rounded-lg p-4 hover:border-blue-300 transition-colors">
-                      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                        <div className="flex-1">
+                    <div key={registro.id} className="border rounded-lg p-4 hover:bg-gray-50">
+                      <div className="flex justify-between items-start">
+                        <div>
                           <div className="flex items-center space-x-2">
-                            <span className="text-sm font-medium text-gray-500">{registro.dataHora}</span>
-                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                              registro.tipo.includes('Completo') ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
-                            }`}>
-                              {registro.tipo.includes('Completo') ? 'Completo' : 'Simples'}
-                            </span>
+                            <Clock className="w-4 h-4 text-gray-500" />
+                            <span className="font-medium text-gray-800">{registro.dataHora}</span>
                           </div>
-                          <p className="text-sm text-gray-600 mt-1">{registro.detalhes}</p>
-                          <p className="text-lg font-bold text-green-700 mt-2">Total: R$ {formatMoney(registro.valorTotal)}</p>
+                          <p className="text-sm text-gray-600 mt-1">{registro.tipo}</p>
+                          <p className="text-xs text-gray-500 mt-1">{registro.detalhes}</p>
                         </div>
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => restaurarHistorico(registro)}
-                            className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-200 flex items-center space-x-1"
-                          >
-                            <RotateCcw className="w-4 h-4" /><span>Restaurar</span>
-                          </button>
-                          <button
-                            onClick={() => excluirHistorico(registro.id)}
-                            className="px-3 py-2 bg-red-100 text-red-600 rounded-lg text-sm hover:bg-red-200"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                        <div className="text-right">
+                          <p className="text-lg font-bold text-green-700">R$ {formatMoney(registro.valorTotal)}</p>
+                          <div className="flex gap-2 mt-2">
+                            <button onClick={() => restaurarHistorico(registro)} className="text-xs px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200">Restaurar</button>
+                            <button onClick={() => excluirHistorico(registro.id)} className="text-xs px-3 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200">Excluir</button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1635,6 +1499,369 @@ export default function App() {
           </div>
         )}
 
+        {/* ================= ABA 6: DOCUMENTAÇÃO ================= */}
+        {activeTab === 'documentacao' && (
+          <div className="space-y-6 animate-fade-in">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl p-8 text-white">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 bg-white/20 rounded-xl flex items-center justify-center text-3xl">
+                  📋
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold">Documentação Técnica</h1>
+                  <p className="text-blue-100 mt-1">Sistema Integrado de Departamento Pessoal v1.0</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Links */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-white rounded-lg p-4 shadow hover:shadow-md transition cursor-pointer border-l-4 border-blue-500">
+                <div className="flex items-center gap-3">
+                  <Users className="text-blue-500" size={24} />
+                  <div>
+                    <h3 className="font-semibold">Base Local</h3>
+                    <p className="text-sm text-gray-500">Cadastro de colaboradores</p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-white rounded-lg p-4 shadow hover:shadow-md transition cursor-pointer border-l-4 border-green-500">
+                <div className="flex items-center gap-3">
+                  <Calculator className="text-green-500" size={24} />
+                  <div>
+                    <h3 className="font-semibold">Salário/Adiant.</h3>
+                    <p className="text-sm text-gray-500">Processamento de folha</p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-white rounded-lg p-4 shadow hover:shadow-md transition cursor-pointer border-l-4 border-orange-500">
+                <div className="flex items-center gap-3">
+                  <Bus className="text-orange-500" size={24} />
+                  <div>
+                    <h3 className="font-semibold">Benefícios</h3>
+                    <p className="text-sm text-gray-500">VT e VR</p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-white rounded-lg p-4 shadow hover:shadow-md transition cursor-pointer border-l-4 border-purple-500">
+                <div className="flex items-center gap-3">
+                  <Building2 className="text-purple-500" size={24} />
+                  <div>
+                    <h3 className="font-semibold">Resumo ERP</h3>
+                    <p className="text-sm text-gray-500">Exportação contábil</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Visão Geral */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <Eye size={20} />
+                Visão Geral do Sistema
+              </h2>
+              <p className="text-gray-600 mb-4">
+                O Sistema Integrado de Departamento Pessoal é uma aplicação web completa para automatizar 
+                processos de RH, incluindo gestão de colaboradores, processamento de folha de pagamento, 
+                geração de arquivos para bancos e controle de benefícios (VT/VR).
+              </p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                <div className="bg-blue-50 rounded-lg p-3 text-center">
+                  <div className="text-2xl font-bold text-blue-600">{colaboradores.length}</div>
+                  <div className="text-sm text-gray-600">Colaboradores</div>
+                </div>
+                <div className="bg-green-50 rounded-lg p-3 text-center">
+                  <div className="text-2xl font-bold text-green-600">10+</div>
+                  <div className="text-sm text-gray-600">Bancos Suportados</div>
+                </div>
+                <div className="bg-orange-50 rounded-lg p-3 text-center">
+                  <div className="text-2xl font-bold text-orange-600">5</div>
+                  <div className="text-sm text-gray-600">Módulos</div>
+                </div>
+                <div className="bg-purple-50 rounded-lg p-3 text-center">
+                  <div className="text-2xl font-bold text-purple-600">{historico.length}</div>
+                  <div className="text-sm text-gray-600">Fechamentos</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Guia de Início Rápido */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                🎯 Guia de Início Rápido
+              </h2>
+              <div className="space-y-4">
+                <div className="flex gap-4 p-4 bg-gray-50 rounded-lg">
+                  <div className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold flex-shrink-0">1</div>
+                  <div>
+                    <h4 className="font-semibold">Cadastre os Colaboradores</h4>
+                    <p className="text-sm text-gray-600">Vá na aba "Base Local" e importe a planilha Excel com os dados dos colaboradores ou cadastre manualmente.</p>
+                  </div>
+                </div>
+                <div className="flex gap-4 p-4 bg-gray-50 rounded-lg">
+                  <div className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold flex-shrink-0">2</div>
+                  <div>
+                    <h4 className="font-semibold">Processe a Folha de Pagamento</h4>
+                    <p className="text-sm text-gray-600">Na aba "Salário/Adiantamento", faça upload do PDF do Domínio. O sistema cruza automaticamente com a base local.</p>
+                  </div>
+                </div>
+                <div className="flex gap-4 p-4 bg-gray-50 rounded-lg">
+                  <div className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold flex-shrink-0">3</div>
+                  <div>
+                    <h4 className="font-semibold">Exporte o Arquivo para o Banco</h4>
+                    <p className="text-sm text-gray-600">Clique em "Exportar Arquivo Banco" para gerar o XLSX no formato esperado pelo Itaú.</p>
+                  </div>
+                </div>
+                <div className="flex gap-4 p-4 bg-gray-50 rounded-lg">
+                  <div className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold flex-shrink-0">4</div>
+                  <div>
+                    <h4 className="font-semibold">Calcule os Benefícios</h4>
+                    <p className="text-sm text-gray-600">Na aba "VT e VR", configure o período, carregue a base e lance faltas/ajustes individuais.</p>
+                  </div>
+                </div>
+                <div className="flex gap-4 p-4 bg-gray-50 rounded-lg">
+                  <div className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold flex-shrink-0">5</div>
+                  <div>
+                    <h4 className="font-semibold">Exporte o Resumo para ERP</h4>
+                    <p className="text-sm text-gray-600">Na aba "Resumo ERP", visualize os totais por empresa/centro de custo e exporte o PDF para contabilidade.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Módulos */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                📦 Módulos do Sistema
+              </h2>
+              
+              {/* Base Local */}
+              <div className="border rounded-lg p-4 mb-4">
+                <h3 className="font-bold text-lg text-blue-600 flex items-center gap-2">
+                  <Users size={20} /> Módulo: Base Local (Colaboradores)
+                </h3>
+                <p className="text-gray-600 mt-2">
+                  Gerencia o cadastro de todos os colaboradores da empresa com seus dados bancários, benefícios e centro de custo.
+                </p>
+                <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-2">
+                  <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-sm">✅ Cadastro manual</span>
+                  <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-sm">✅ Importação Excel</span>
+                  <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-sm">✅ Múltiplas Empresas</span>
+                  <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-sm">✅ Centro de Custo</span>
+                  <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-sm">✅ Dados Bancários</span>
+                  <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-sm">✅ VT por colaborador</span>
+                </div>
+              </div>
+
+              {/* Salário */}
+              <div className="border rounded-lg p-4 mb-4">
+                <h3 className="font-bold text-lg text-green-600 flex items-center gap-2">
+                  <Calculator size={20} /> Módulo: Salário / Adiantamento
+                </h3>
+                <p className="text-gray-600 mt-2">
+                  Processa PDFs do sistema Domínio e gera arquivos para pagamento via banco.
+                </p>
+                <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-2">
+                  <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-sm">✅ Upload PDF</span>
+                  <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-sm">✅ Extração automática</span>
+                  <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-sm">✅ Arquivo Itaú</span>
+                  <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-sm">✅ Salário ou Adiantamento</span>
+                  <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-sm">✅ Cruzamento automático</span>
+                </div>
+              </div>
+
+              {/* Benefícios */}
+              <div className="border rounded-lg p-4 mb-4">
+                <h3 className="font-bold text-lg text-orange-600 flex items-center gap-2">
+                  <Bus size={20} /> Módulo: Benefícios (VT e VR)
+                </h3>
+                <p className="text-gray-600 mt-2">
+                  Calcula Vale Transporte e Vale Refeição com base nos dias úteis do mês, faltas e ajustes.
+                </p>
+                <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-2">
+                  <span className="bg-orange-100 text-orange-700 px-2 py-1 rounded text-sm">✅ Cálculo automático</span>
+                  <span className="bg-orange-100 text-orange-700 px-2 py-1 rounded text-sm">✅ Dias úteis</span>
+                  <span className="bg-orange-100 text-orange-700 px-2 py-1 rounded text-sm">✅ Faltas/Ajustes</span>
+                  <span className="bg-orange-100 text-orange-700 px-2 py-1 rounded text-sm">✅ VT Banco (Itaú)</span>
+                  <span className="bg-orange-100 text-orange-700 px-2 py-1 rounded text-sm">✅ VR Solides</span>
+                  <span className="bg-orange-100 text-orange-700 px-2 py-1 rounded text-sm">✅ Recibos PDF</span>
+                </div>
+              </div>
+
+              {/* ERP */}
+              <div className="border rounded-lg p-4">
+                <h3 className="font-bold text-lg text-purple-600 flex items-center gap-2">
+                  <Building2 size={20} /> Módulo: Resumo ERP
+                </h3>
+                <p className="text-gray-600 mt-2">
+                  Gera resumos agrupados por empresa e centro de custo para lançamento no sistema contábil/ERP.
+                </p>
+                <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-2">
+                  <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded text-sm">✅ Agrupamento Empresa</span>
+                  <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded text-sm">✅ Centro de Custo</span>
+                  <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded text-sm">✅ Export PDF</span>
+                  <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded text-sm">✅ Histórico</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Bancos Suportados */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                🏦 Bancos Suportados
+              </h2>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="flex items-center gap-2 bg-gray-50 p-3 rounded-lg">
+                  <span className="text-green-500">✅</span>
+                  <span><strong>341</strong> - Itaú</span>
+                </div>
+                <div className="flex items-center gap-2 bg-gray-50 p-3 rounded-lg">
+                  <span className="text-green-500">✅</span>
+                  <span><strong>237</strong> - Bradesco</span>
+                </div>
+                <div className="flex items-center gap-2 bg-gray-50 p-3 rounded-lg">
+                  <span className="text-green-500">✅</span>
+                  <span><strong>033</strong> - Santander</span>
+                </div>
+                <div className="flex items-center gap-2 bg-gray-50 p-3 rounded-lg">
+                  <span className="text-green-500">✅</span>
+                  <span><strong>001</strong> - Banco do Brasil</span>
+                </div>
+                <div className="flex items-center gap-2 bg-gray-50 p-3 rounded-lg">
+                  <span className="text-green-500">✅</span>
+                  <span><strong>104</strong> - Caixa</span>
+                </div>
+                <div className="flex items-center gap-2 bg-gray-50 p-3 rounded-lg">
+                  <span className="text-green-500">✅</span>
+                  <span><strong>260</strong> - Nubank</span>
+                </div>
+                <div className="flex items-center gap-2 bg-gray-50 p-3 rounded-lg">
+                  <span className="text-green-500">✅</span>
+                  <span><strong>077</strong> - Inter</span>
+                </div>
+                <div className="flex items-center gap-2 bg-gray-50 p-3 rounded-lg">
+                  <span className="text-green-500">✅</span>
+                  <span><strong>756</strong> - Sicoob</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Formato do Excel */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                📊 Formato do Excel para Importação
+              </h2>
+              <p className="text-gray-600 mb-4">A planilha de colaboradores deve ter as seguintes colunas (cabeçalho na primeira linha):</p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm border-collapse">
+                  <thead>
+                    <tr className="bg-gray-100">
+                      <th className="border p-2 text-left">Coluna</th>
+                      <th className="border p-2 text-left">Nome Aceito</th>
+                      <th className="border p-2 text-left">Exemplo</th>
+                      <th className="border p-2 text-left">Obrigatório</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr><td className="border p-2">A</td><td className="border p-2">Matrícula</td><td className="border p-2">001234</td><td className="border p-2"><span className="bg-red-100 text-red-700 px-2 py-0.5 rounded text-xs">Sim</span></td></tr>
+                    <tr><td className="border p-2">B</td><td className="border p-2">Nome</td><td className="border p-2">JOÃO SILVA</td><td className="border p-2"><span className="bg-red-100 text-red-700 px-2 py-0.5 rounded text-xs">Sim</span></td></tr>
+                    <tr><td className="border p-2">C</td><td className="border p-2">CPF</td><td className="border p-2">123.456.789-01</td><td className="border p-2"><span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-xs">Não</span></td></tr>
+                    <tr><td className="border p-2">D</td><td className="border p-2">Banco</td><td className="border p-2">ITAU ou 341</td><td className="border p-2"><span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-xs">Não</span></td></tr>
+                    <tr><td className="border p-2">E</td><td className="border p-2">Agência</td><td className="border p-2">1234</td><td className="border p-2"><span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-xs">Não</span></td></tr>
+                    <tr><td className="border p-2">F</td><td className="border p-2">Conta</td><td className="border p-2">12345-6</td><td className="border p-2"><span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-xs">Não</span></td></tr>
+                    <tr><td className="border p-2">G</td><td className="border p-2">Valor VT</td><td className="border p-2">10,50</td><td className="border p-2"><span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-xs">Não</span></td></tr>
+                    <tr><td className="border p-2">H</td><td className="border p-2">Centro de Custo</td><td className="border p-2">ADMINISTRATIVO</td><td className="border p-2"><span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-xs">Não</span></td></tr>
+                    <tr><td className="border p-2">I</td><td className="border p-2">Empresa</td><td className="border p-2">MAIS ESCORAMENTOS</td><td className="border p-2"><span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-xs">Não</span></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Fórmulas */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                🧮 Fórmulas de Cálculo
+              </h2>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="bg-orange-50 p-4 rounded-lg">
+                  <h4 className="font-bold text-orange-700">Vale Transporte</h4>
+                  <code className="block mt-2 bg-white p-2 rounded text-sm">
+                    VT_MENSAL = VT_DIÁRIO × (DIAS_ÚTEIS - FALTAS - DESC_VT + ACRÉS_VT)
+                  </code>
+                  <p className="text-sm text-gray-600 mt-2">Ex: R$ 10,50 × (22 - 2 - 0 + 0) = R$ 210,00</p>
+                </div>
+                <div className="bg-teal-50 p-4 rounded-lg">
+                  <h4 className="font-bold text-teal-700">Vale Refeição</h4>
+                  <code className="block mt-2 bg-white p-2 rounded text-sm">
+                    VR_BRUTO = VR_DIÁRIO × (DIAS_ÚTEIS - FALTAS - DESC_VR + ACRÉS_VR)<br/>
+                    VR_LÍQUIDO = VR_BRUTO - (VR_BRUTO × 9%)
+                  </code>
+                  <p className="text-sm text-gray-600 mt-2">Desconto de 9% conforme CCT</p>
+                </div>
+              </div>
+            </div>
+
+            {/* LocalStorage */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                💾 Armazenamento de Dados
+              </h2>
+              <div className="bg-yellow-50 border-l-4 border-yellow-500 p-4 mb-4">
+                <p className="text-yellow-800">
+                  <strong>⚠️ Importante:</strong> Os dados são salvos no navegador (LocalStorage). 
+                  Se limpar o cache, os dados serão perdidos. Salve fechamentos no histórico para backup.
+                </p>
+              </div>
+              <div className="grid md:grid-cols-2 gap-3">
+                <div className="bg-gray-50 p-3 rounded flex justify-between">
+                  <code className="text-sm">dp_colaboradores</code>
+                  <span className="text-gray-500 text-sm">{colaboradores.length} registros</span>
+                </div>
+                <div className="bg-gray-50 p-3 rounded flex justify-between">
+                  <code className="text-sm">dp_salarioData</code>
+                  <span className="text-gray-500 text-sm">{salarioData.length} registros</span>
+                </div>
+                <div className="bg-gray-50 p-3 rounded flex justify-between">
+                  <code className="text-sm">dp_beneficiosData</code>
+                  <span className="text-gray-500 text-sm">{beneficiosData.length} registros</span>
+                </div>
+                <div className="bg-gray-50 p-3 rounded flex justify-between">
+                  <code className="text-sm">dp_historico</code>
+                  <span className="text-gray-500 text-sm">{historico.length} fechamentos</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Suporte */}
+            <div className="bg-gradient-to-r from-gray-700 to-gray-900 rounded-xl p-6 text-white">
+              <h2 className="text-xl font-bold mb-4">🛠️ Suporte Técnico</h2>
+              <p className="text-gray-300 mb-4">
+                Desenvolvido pelo setor de TI da MAIS Escoramentos. Para dúvidas, melhorias ou reportar problemas:
+              </p>
+              <div className="flex flex-wrap gap-4">
+                <div className="bg-white/10 px-4 py-2 rounded-lg">
+                  <span className="text-gray-400 text-sm">Versão</span>
+                  <p className="font-bold">1.0.0</p>
+                </div>
+                <div className="bg-white/10 px-4 py-2 rounded-lg">
+                  <span className="text-gray-400 text-sm">Última atualização</span>
+                  <p className="font-bold">Maio 2026</p>
+                </div>
+                <div className="bg-white/10 px-4 py-2 rounded-lg">
+                  <span className="text-gray-400 text-sm">Contato TI</span>
+                  <p className="font-bold">ti@maisescoramentos.com.br</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+      </div>
+
+      {/* Rodapé fixo */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 py-2 px-4 text-center text-xs text-gray-500">
+        Sistema Integrado de DP v1.0 | MAIS Escoramentos | Dados salvos automaticamente no navegador
       </div>
     </div>
   );
