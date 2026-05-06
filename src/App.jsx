@@ -1007,25 +1007,34 @@ export default function App() {
               </div>
             </div>
             <div className="flex items-center space-x-3 mt-4 md:mt-0">
-              <button 
-                onClick={sincronizarDados}
-                className="px-3 py-2 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 flex items-center space-x-1 font-medium"
-                title="Sincronizar dados entre abas"
-              >
-                <RefreshCw className="w-4 h-4" />
-                <span>Sincronizar</span>
-              </button>
-              <button 
-                onClick={resetCompleto}
-                className="px-3 py-2 text-sm bg-red-100 text-red-600 rounded-lg hover:bg-red-200 flex items-center space-x-1 font-medium"
-                title="Limpar todos os dados do sistema"
-              >
-                <Trash2 className="w-4 h-4" />
-                <span>Reset</span>
-              </button>
-            </div>
-          </div>
-          
+  {/* Botão Documentação */}
+  <a 
+    href="/docs.html"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="px-3 py-2 text-sm bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 flex items-center space-x-1 font-medium"
+    title="Abrir documentação técnica"
+  >
+    <FileText className="w-4 h-4" />
+    <span>Docs</span>
+  </a>
+  <button 
+    onClick={sincronizarDados}
+    className="px-3 py-2 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 flex items-center space-x-1 font-medium"
+    title="Sincronizar dados entre abas"
+  >
+    <RefreshCw className="w-4 h-4" />
+    <span>Sincronizar</span>
+  </button>
+  <button 
+    onClick={resetCompleto}
+    className="px-3 py-2 text-sm bg-red-100 text-red-600 rounded-lg hover:bg-red-200 flex items-center space-x-1 font-medium"
+    title="Limpar todos os dados do sistema"
+  >
+    <Trash2 className="w-4 h-4" />
+    <span>Reset</span>
+  </button>
+</div>    
           <div className="flex flex-wrap border-b border-gray-200">
             <button onClick={() => setActiveTab('colaboradores')} className={`flex-1 py-4 px-4 text-sm font-bold tracking-wide transition-colors flex justify-center items-center space-x-2 ${activeTab === 'colaboradores' ? 'text-blue-700 bg-blue-50 border-b-2 border-blue-600' : 'text-gray-500 hover:bg-gray-50'}`}>
               <Users className="w-5 h-5" /><span>Base Local</span>
