@@ -1032,10 +1032,11 @@ export default function App() {
     title="Limpar todos os dados do sistema"
   >
     <Trash2 className="w-4 h-4" />
-    <span>Reset</span>
-  </button>
-</div>    
-          <div className="flex flex-wrap border-b border-gray-200">
+                  <span>Reset</span>
+                </button>
+              </div>
+            </div>
+            <div className="flex flex-wrap border-b border-gray-200">
             <button onClick={() => setActiveTab('colaboradores')} className={`flex-1 py-4 px-4 text-sm font-bold tracking-wide transition-colors flex justify-center items-center space-x-2 ${activeTab === 'colaboradores' ? 'text-blue-700 bg-blue-50 border-b-2 border-blue-600' : 'text-gray-500 hover:bg-gray-50'}`}>
               <Users className="w-5 h-5" /><span>Base Local</span>
               {colaboradores.length > 0 && <span className="ml-1 px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs">{colaboradores.length}</span>}
