@@ -1331,7 +1331,9 @@ export default function App() {
         }
 
         if (vida.titularidade === 'Titular') {
-          ultimoTitularColab = colab;
+          // Sempre atualiza ultimoTitularColab, mesmo se não encontrado na base
+          // para que dependentes consigam herdar quando o titular for encontrado
+          if (colab) ultimoTitularColab = colab;
           if (colab) {
             linhasProcessadas.push({
               ...vida,
@@ -1344,22 +1346,15 @@ export default function App() {
             naoEncontrados.push({ ...vida, motivo: 'CPF/Nome não encontrado na base' });
           }
         } else {
-          // Dependente: usar o mesmo CC/Empresa do titular anterior
-          if (ultimoTitularColab) {
+          // Dependente: herdar CC/Empresa do último titular encontrado
+          const titularRef = ultimoTitularColab || colab;
+          if (titularRef) {
             linhasProcessadas.push({
               ...vida,
-              colaborador: ultimoTitularColab,
-              centroCusto: ultimoTitularColab.centroCusto || 'GERAL',
-              empresa: ultimoTitularColab.empresa || 'NÃO INFORMADA',
-              nomeColaborador: ultimoTitularColab.nome + ' (dep.)'
-            });
-          } else if (colab) {
-            linhasProcessadas.push({
-              ...vida,
-              colaborador: colab,
-              centroCusto: colab.centroCusto || 'GERAL',
-              empresa: colab.empresa || 'NÃO INFORMADA',
-              nomeColaborador: colab.nome + ' (dep.)'
+              colaborador: titularRef,
+              centroCusto: titularRef.centroCusto || 'GERAL',
+              empresa: titularRef.empresa || 'NÃO INFORMADA',
+              nomeColaborador: titularRef.nome + ' (dep.)'
             });
           } else {
             naoEncontrados.push({ ...vida, motivo: 'Dependente sem titular identificado' });
