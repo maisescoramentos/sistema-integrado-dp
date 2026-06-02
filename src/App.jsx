@@ -1180,30 +1180,56 @@ export default function App() {
       const valorRegex = /BRL([\d.,]+)/g;
       const dataRegex = /(\d{2}\/\d{2}\/\d{4})/;
 
-      // Acumular todo texto e tentar extrair por blocos de CPF
+      // Acumular todo texto
       const fullText = allLines.join(' | ');
 
-      // Estratégia: dividir pelo padrão de CPF para isolar cada vida
-      // CPF formatado: 000.000.000-00 OU CPF puro 11 dígitos entre não-dígitos
-      // Excluímos números de carteirinha (14+ dígitos) e evitamos capturar
-      // partes de sequências maiores.
-      const cpfSplitRegex = /(?<!\d)(\d{3}\.\d{3}\.\d{3}-\d{2}|(?<!\d)\d{11}(?!\d))/g;
-      const allCpfMatches = [...fullText.matchAll(cpfSplitRegex)];
+      // Estratégia específica para PDF Porto Saúde:
+      // Padrão por linha: [carteirinha 14 dígitos] [idade 1-3 dígitos] [CPF 11 dígitos]
+      // Exemplo: "50172818000021 60 28698169104"
+      // A carteirinha sempre começa com 5 e tem 14 dígitos
+      // O CPF vem APÓS a idade (1-3 dígitos) que vem após a carteirinha
       
-      // Filtrar: CPF válido não pode começar com todos dígitos iguais
-      // e deve ter exatamente 11 dígitos (sem máscara) ou formato 000.000.000-00
-      const cpfMatches = allCpfMatches.filter(m => {
-        const digits = m[1].replace(/[^\d]/g, '');
-        // Validar pelo dígito verificador — elimina carteirinhas e números aleatórios
-        return isCPFValido(digits);
+      // Regex: carteirinha(14d) + separador + idade(1-3d) + separador + CPF(11d)
+      const carteirinhaRegex = /\b(5\d{13})\s+(\d{1,3})\s+(\d{11})\b/g;
+      const carteirinhaMatches = [...fullText.matchAll(carteirinhaRegex)];
+      
+      // Fallback: CPF formatado 000.000.000-00 (para PDFs com máscara)
+      const cpfFormatadoRegex = /\b(\d{3}\.\d{3}\.\d{3}-\d{2})\b/g;
+      const cpfFormatadoMatches = [...fullText.matchAll(cpfFormatadoRegex)];
+      
+      // Montar lista de CPFs com suas posições no texto
+      const cpfEntries = [];
+      
+      // Prioridade 1: padrão carteirinha + idade + CPF
+      carteirinhaMatches.forEach(m => {
+        const cpfDigits = m[3];
+        if (isCPFValido(cpfDigits)) {
+          cpfEntries.push({ index: m.index, cpfLimpo: cpfDigits, carteirinha: m[1] });
+        }
       });
+      
+      // Prioridade 2: CPF formatado (fallback para outros formatos de PDF)
+      if (cpfEntries.length === 0) {
+        cpfFormatadoMatches.forEach(m => {
+          const cpfDigits = m[1].replace(/[^\d]/g, '');
+          if (isCPFValido(cpfDigits)) {
+            cpfEntries.push({ index: m.index, cpfLimpo: cpfDigits, carteirinha: null });
+          }
+        });
+      }
+      
+      // Compatibilidade: transformar em formato esperado pelo código abaixo
+      const cpfMatches = cpfEntries.map(e => ({
+        index: e.index,
+        1: e.cpfLimpo,
+        _cpfLimpo: e.cpfLimpo
+      }));
 
       const vidas = [];
       const semCorrespondencia = [];
 
       for (let i = 0; i < cpfMatches.length; i++) {
-        const cpfRaw = cpfMatches[i][1];
-        const cpfLimpo = cpfRaw.replace(/[^\d]/g, '');
+        const cpfLimpo = cpfMatches[i]._cpfLimpo || String(cpfMatches[i][1]).replace(/[^\d]/g, '');
 
         // Pegar o trecho entre este CPF e o próximo
         const startIdx = cpfMatches[i].index;
