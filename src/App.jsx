@@ -141,20 +141,19 @@ export default function App() {
     }
   };
 
-  // Sincronizar automaticamente ao carregar o sistema
-  useEffect(() => {
-    if (dbReady) {
-      sincronizarSolides(true);
-      // Re-sincronizar a cada 30 minutos
-      const interval = setInterval(() => sincronizarSolides(true), 30 * 60 * 1000);
-      return () => clearInterval(interval);
-    }
-  }, [dbReady]);
-
   // Wrappers para salvar config ao mudar
   const updatePaymentType = (val) => { setPaymentType(val); saveConfig('paymentType', val); };
   const updatePeriodo = (val) => { setPeriodo(val); saveConfig('periodo', val); };
   const updateValorVRDiario = (val) => { setValorVRDiario(val); saveConfig('valorVRDiario', val); };
+
+  // Sincronizar automaticamente ao carregar o sistema (após todas as funções estarem definidas)
+  useEffect(() => {
+    if (dbReady) {
+      sincronizarSolides(true);
+      const interval = setInterval(() => sincronizarSolides(true), 30 * 60 * 1000);
+      return () => clearInterval(interval);
+    }
+  }, [dbReady]);
 
   // ================= FIRESTORE: CARREGAMENTO INICIAL =================
   const [dbReady, setDbReady] = useState(false);
