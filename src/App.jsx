@@ -94,7 +94,7 @@ export default function App() {
     setSincSolides(s => ({ ...s, status: 'syncing', msg: 'Sincronizando com Solides...' }));
     try {
       const resp = await fetch('/api/solides');
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
       const { colaboradores: doSolides } = await resp.json();
       if (!doSolides || doSolides.length === 0) throw new Error('Nenhum colaborador retornado');
 
@@ -126,17 +126,17 @@ export default function App() {
       setColaboradores(merged);
       setSincSolides({
         status: 'ok',
-        msg: `${merged.length} colaboradores sincronizados às ${new Date().toLocaleTimeString('pt-BR')}`,
+        msg: merged.length + ' colaboradores sincronizados às ' + new Date().toLocaleTimeString('pt-BR'),
         incompletos
       });
 
       if (!silencioso && incompletos.length > 0) {
         showAlert('⚠️ Cadastros Incompletos',
-          `${incompletos.length} colaborador(es) importados da Solides estão com dados faltando (banco, agência, conta, VT ou centro de custo).\n\nAcesse a aba "Base Local" para completar.`
+          incompletos.length + ' colaborador(es) importados da Solides estão com dados faltando (banco, agência, conta, VT ou centro de custo).\n\nAcesse a aba "Base Local" para completar.'
         );
       }
     } catch (err) {
-      setSincSolides({ status: 'error', msg: `Erro: ${err.message}`, incompletos: [] });
+      setSincSolides({ status: 'error', msg: 'Erro: ' + err.message, incompletos: [] });
       if (!silencioso) showAlert('❌ Erro na sincronização', err.message);
     }
   };
@@ -1628,20 +1628,20 @@ export default function App() {
   <button
     onClick={() => sincronizarSolides(false)}
     disabled={sincSolides.status === 'syncing'}
-    className={`px-3 py-2 text-sm rounded-lg flex items-center space-x-1 font-medium ${
-      sincSolides.status === 'error' ? 'bg-red-100 text-red-600 hover:bg-red-200' :
-      sincSolides.status === 'ok' && sincSolides.incompletos.length > 0 ? 'bg-orange-100 text-orange-700 hover:bg-orange-200' :
-      sincSolides.status === 'ok' ? 'bg-green-100 text-green-700 hover:bg-green-200' :
-      'bg-blue-100 text-blue-700 hover:bg-blue-200'
-    }`}
+    className={
+      sincSolides.status === 'error' ? 'px-3 py-2 text-sm rounded-lg flex items-center space-x-1 font-medium bg-red-100 text-red-600 hover:bg-red-200' :
+      (sincSolides.status === 'ok' && sincSolides.incompletos.length > 0) ? 'px-3 py-2 text-sm rounded-lg flex items-center space-x-1 font-medium bg-orange-100 text-orange-700 hover:bg-orange-200' :
+      sincSolides.status === 'ok' ? 'px-3 py-2 text-sm rounded-lg flex items-center space-x-1 font-medium bg-green-100 text-green-700 hover:bg-green-200' :
+      'px-3 py-2 text-sm rounded-lg flex items-center space-x-1 font-medium bg-blue-100 text-blue-700 hover:bg-blue-200'
+    }
     title={sincSolides.msg}
   >
-    <RefreshCw className={`w-4 h-4 ${sincSolides.status === 'syncing' ? 'animate-spin' : ''}`} />
+    <RefreshCw className={sincSolides.status === 'syncing' ? 'w-4 h-4 animate-spin' : 'w-4 h-4'} />
     <span>
       {sincSolides.status === 'syncing' ? 'Sincronizando...' :
-       sincSolides.status === 'error' ? 'Solides ❌' :
-       sincSolides.incompletos.length > 0 ? `Solides ⚠️ ${sincSolides.incompletos.length}` :
-       'Solides ✓'}
+       sincSolides.status === 'error' ? 'Solides X' :
+       sincSolides.incompletos.length > 0 ? ('Solides ! ' + sincSolides.incompletos.length) :
+       'Solides OK'}
     </span>
   </button>
   <button
