@@ -1,5 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Upload, Download, AlertTriangle, FileSpreadsheet, CheckCircle, ArrowRight, FileText, CalendarDays, Calculator, Bus, Coffee, Users, PieChart, Plus, Trash2, Clock, RotateCcw, Save, Eye, EyeOff, Building2, ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { db } from './firebase';
+import {
+  collection, doc, setDoc, onSnapshot, deleteDoc, writeBatch, getDocs
+} from 'firebase/firestore';
+import { Upload, Download, AlertTriangle, FileSpreadsheet, CheckCircle, ArrowRight, FileText, CalendarDays, Calculator, Bus, Coffee, Users, PieChart, Plus, Trash2, Clock, RotateCcw, Save, Eye, EyeOff, Building2, ChevronDown, ChevronRight, RefreshCw, HeartPulse, UserCheck, UserX } from 'lucide-react';
 
 // ================= COMPONENTE DE INPUT MONETÁRIO INTELIGENTE =================
 const CurrencyInput = ({ value, onChange, className, placeholder }) => {
@@ -61,35 +65,22 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('colaboradores');
 
   // ================= ESTADOS COM AUTO-SAVE (LOCAL STORAGE) =================
-  const [colaboradores, setColaboradores] = useState(() => {
-    const saved = localStorage.getItem('dp_colaboradores');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [colaboradores, setColaboradores] = useState([]);
 
-  const [salarioData, setSalarioData] = useState(() => {
-    const saved = localStorage.getItem('dp_salarioData');
-    return saved ? JSON.parse(saved) : [];
-  });
-  const [paymentType, setPaymentType] = useState(() => localStorage.getItem('dp_paymentType') || '1');
+  const [salarioData, setSalarioData] = useState([]);
+  const [paymentType, setPaymentType] = useState('1');
 
-  const [periodo, setPeriodo] = useState(() => {
-    const saved = localStorage.getItem('dp_periodo');
-    return saved ? JSON.parse(saved) : { start: '', end: '', feriados: 0 };
-  });
-  const [valorVRDiario, setValorVRDiario] = useState(() => localStorage.getItem('dp_valorVRDiario') || '');
-  const [beneficiosData, setBeneficiosData] = useState(() => {
-    const saved = localStorage.getItem('dp_beneficiosData');
-    return saved ? JSON.parse(saved) : [];
-  });
-  const [beneficiosOverrides, setBeneficiosOverrides] = useState(() => {
-    const saved = localStorage.getItem('dp_beneficiosOverrides');
-    return saved ? JSON.parse(saved) : {};
-  });
+  const [periodo, setPeriodo] = useState({ start: '', end: '', feriados: 0 });
+  const [valorVRDiario, setValorVRDiario] = useState('');
+  const [beneficiosData, setBeneficiosData] = useState([]);
+  const [beneficiosOverrides, setBeneficiosOverrides] = useState({});
 
-  const [historico, setHistorico] = useState(() => {
-    const saved = localStorage.getItem('dp_historico');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [historico, setHistorico] = useState([]);
+
+  // ================= ESTADO PLANO DE SAÚDE =================
+  const [planoSaudeData, setPlanoSaudeData] = useState(null);
+  const [isProcessingPlano, setIsProcessingPlano] = useState(false);
+  const fileInputPlano = useRef(null);
 
   // Controle de Visualização do ERP
   const [incluirBeneficiosNoERP, setIncluirBeneficiosNoERP] = useState(true);
@@ -97,14 +88,98 @@ export default function App() {
   // Estado para controlar expansão das empresas no ERP
   const [expandedEmpresas, setExpandedEmpresas] = useState({});
 
-  useEffect(() => localStorage.setItem('dp_colaboradores', JSON.stringify(colaboradores)), [colaboradores]);
-  useEffect(() => localStorage.setItem('dp_salarioData', JSON.stringify(salarioData)), [salarioData]);
-  useEffect(() => localStorage.setItem('dp_paymentType', paymentType), [paymentType]);
-  useEffect(() => localStorage.setItem('dp_periodo', JSON.stringify(periodo)), [periodo]);
-  useEffect(() => localStorage.setItem('dp_valorVRDiario', valorVRDiario), [valorVRDiario]);
-  useEffect(() => localStorage.setItem('dp_beneficiosData', JSON.stringify(beneficiosData)), [beneficiosData]);
-  useEffect(() => localStorage.setItem('dp_beneficiosOverrides', JSON.stringify(beneficiosOverrides)), [beneficiosOverrides]);
-  useEffect(() => localStorage.setItem('dp_historico', JSON.stringify(historico)), [historico]);
+  // Wrappers para salvar config ao mudar
+  const updatePaymentType = (val) => { setPaymentType(val); saveConfig('paymentType', val); };
+  const updatePeriodo = (val) => { setPeriodo(val); saveConfig('periodo', val); };
+  const updateValorVRDiario = (val) => { setValorVRDiario(val); saveConfig('valorVRDiario', val); };
+
+  // ================= FIRESTORE: CARREGAMENTO INICIAL =================
+  const [dbReady, setDbReady] = useState(false);
+
+  useEffect(() => {
+    const unsubs = [];
+
+    // colaboradores
+    unsubs.push(onSnapshot(collection(db, 'colaboradores'), snap => {
+      const data = snap.docs.map(d => d.data());
+      setColaboradores(data);
+    }));
+
+    // config (periodo, valorVRDiario, paymentType)
+    unsubs.push(onSnapshot(doc(db, 'config', 'geral'), snap => {
+      if (snap.exists()) {
+        const d = snap.data();
+        if (d.periodo) setPeriodo(d.periodo);
+        if (d.valorVRDiario !== undefined) setValorVRDiario(d.valorVRDiario);
+        if (d.paymentType) setPaymentType(d.paymentType);
+      }
+    }));
+
+    // salarioData
+    unsubs.push(onSnapshot(doc(db, 'config', 'salario'), snap => {
+      if (snap.exists()) {
+        const d = snap.data();
+        if (d.salarioData) setSalarioData(d.salarioData);
+      }
+    }));
+
+    // beneficios
+    unsubs.push(onSnapshot(doc(db, 'config', 'beneficios'), snap => {
+      if (snap.exists()) {
+        const d = snap.data();
+        if (d.beneficiosData) setBeneficiosData(d.beneficiosData);
+        if (d.beneficiosOverrides) setBeneficiosOverrides(d.beneficiosOverrides);
+      }
+    }));
+
+    // historico
+    unsubs.push(onSnapshot(collection(db, 'historico'), snap => {
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+      setHistorico(data);
+    }));
+
+    // plano saude
+    unsubs.push(onSnapshot(doc(db, 'config', 'planoSaude'), snap => {
+      if (snap.exists()) setPlanoSaudeData(snap.data());
+      else setPlanoSaudeData(null);
+    }));
+
+    setDbReady(true);
+    return () => unsubs.forEach(u => u());
+  }, []);
+
+  // ================= FIRESTORE: FUNÇÕES DE SAVE =================
+  const saveColaboradores = async (lista) => {
+    const batch = writeBatch(db);
+    const snap = await getDocs(collection(db, 'colaboradores'));
+    snap.forEach(d => batch.delete(d.ref));
+    lista.forEach(c => {
+      const ref = doc(collection(db, 'colaboradores'), String(c.matricula));
+      batch.set(ref, c);
+    });
+    await batch.commit();
+  };
+
+  const saveConfig = async (campo, valor) => {
+    await setDoc(doc(db, 'config', 'geral'), { [campo]: valor }, { merge: true });
+  };
+
+  const saveSalario = async (data) => {
+    await setDoc(doc(db, 'config', 'salario'), { salarioData: data });
+  };
+
+  const saveBeneficios = async (data, overrides) => {
+    await setDoc(doc(db, 'config', 'beneficios'), {
+      beneficiosData: data,
+      beneficiosOverrides: overrides
+    });
+  };
+
+  const savePlanoSaude = async (data) => {
+    if (data) await setDoc(doc(db, 'config', 'planoSaude'), data);
+    else await deleteDoc(doc(db, 'config', 'planoSaude'));
+  };
 
   // ================= OUTROS ESTADOS =================
   const fileInputCadastro = useRef(null);
@@ -167,15 +242,14 @@ export default function App() {
         setExpandedEmpresas({});
         setFormData({ matricula: '', nome: '', cpf: '', banco: '', agencia: '', conta: '', valorVT: '', centroCusto: 'ADMINISTRATIVO', empresa: '' });
         
-        // Limpa localStorage
-        localStorage.removeItem('dp_colaboradores');
-        localStorage.removeItem('dp_salarioData');
-        localStorage.removeItem('dp_beneficiosData');
-        localStorage.removeItem('dp_beneficiosOverrides');
-        localStorage.removeItem('dp_historico');
-        localStorage.removeItem('dp_periodo');
-        localStorage.removeItem('dp_valorVRDiario');
-        localStorage.removeItem('dp_paymentType');
+        // Limpa Firestore
+        saveColaboradores([]);
+        saveSalario([]);
+        saveBeneficios([], {});
+        savePlanoSaude(null);
+        saveConfig('periodo', { start: '', end: '', feriados: 0 });
+        saveConfig('valorVRDiario', '');
+        saveConfig('paymentType', '1');
         
         setActiveTab('colaboradores');
         showAlert("✅ Reset Concluído", "Todos os dados foram limpos com sucesso. O sistema está pronto para uma nova operação.");
@@ -200,6 +274,7 @@ export default function App() {
         }
       });
       setBeneficiosOverrides(novosOverrides);
+      saveBeneficios(lista, novosOverrides);
       
       // Limpa salarioData se as matrículas não correspondem
       if (salarioData.length > 0) {
@@ -258,8 +333,11 @@ export default function App() {
     setColaboradores(prev => {
       const idx = prev.findIndex(c => c.matricula === matSegura);
       const novo = { ...formData, matricula: matSegura, empresa: empresaFormatada };
-      if (idx >= 0) { const updated = [...prev]; updated[idx] = novo; return updated; }
-      return [...prev, novo];
+      let updated;
+      if (idx >= 0) { updated = [...prev]; updated[idx] = novo; }
+      else updated = [...prev, novo];
+      saveColaboradores(updated);
+      return updated;
     });
     setFormData({ matricula: '', nome: '', cpf: '', banco: '', agencia: '', conta: '', valorVT: '', centroCusto: 'ADMINISTRATIVO', empresa: '' });
     setShowAddForm(false);
@@ -267,7 +345,11 @@ export default function App() {
 
   const removerColaborador = (mat) => {
     showConfirm("Excluir Colaborador", "Deseja realmente remover este colaborador?", () => {
-      setColaboradores(prev => prev.filter(c => c.matricula !== mat));
+      setColaboradores(prev => {
+        const updated = prev.filter(c => c.matricula !== mat);
+        saveColaboradores(updated);
+        return updated;
+      });
     });
   };
 
@@ -326,11 +408,14 @@ export default function App() {
       });
       if(novos.length > 0) {
         setColaboradores(novos);
+        saveColaboradores(novos);
         
         // ✅ CORREÇÃO: Limpar dados derivados ao importar nova base
         setSalarioData([]);
         setBeneficiosData([]);
         setBeneficiosOverrides({});
+        saveSalario([]);
+        saveBeneficios([], {});
         setEspelhoFile(null);
         setErrorsSalario([]);
         
@@ -428,6 +513,7 @@ export default function App() {
 
       if (result.length === 0) currentErrors.push("Erro: Não foi possível extrair valores cruzando com os colaboradores cadastrados.");
       setSalarioData(result);
+      saveSalario(result);
       setErrorsSalario(currentErrors);
     } catch (error) {
       console.error(error);
@@ -453,6 +539,7 @@ export default function App() {
   const limparDadosSalario = () => {
     showConfirm("Limpar Dados de Salário", "Deseja remover os dados processados da tela de salário?", () => {
       setSalarioData([]);
+      saveSalario([]);
       setEspelhoFile(null);
       setErrorsSalario([]);
     });
@@ -489,6 +576,7 @@ export default function App() {
       }
     });
     setBeneficiosOverrides(novosOverrides);
+    saveBeneficios(lista, novosOverrides);
     
     showAlert("✅ Base Carregada", `${lista.length} colaboradores carregados para lançamento de benefícios.`);
   };
@@ -500,6 +588,7 @@ export default function App() {
         novosOverrides[c.matricula] = { ausencias: 0, descontoVT: 0, descontoVR: 0, acrescimosVT: 0, acrescimosVR: 0, obs: '', valorVT: c.valorVT || '' };
       });
       setBeneficiosOverrides(novosOverrides);
+      saveBeneficios(beneficiosData, novosOverrides);
     });
   };
 
@@ -512,6 +601,15 @@ export default function App() {
       }
     }));
   };
+
+  useEffect(() => {
+    if (beneficiosData.length > 0) {
+      const timer = setTimeout(() => {
+        saveBeneficios(beneficiosData, beneficiosOverrides);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [beneficiosOverrides]);
 
   const calcBeneficios = () => {
     const vrDiarioNumGlobal = parseFloat(valorVRDiario) || 0;
@@ -927,7 +1025,8 @@ export default function App() {
       snapshot
     };
 
-    setHistorico(prev => [novoRegistro, ...prev]);
+    const histRef = doc(collection(db, 'historico'));
+    setDoc(histRef, { ...novoRegistro, id: histRef.id, timestamp: Date.now() });
     showAlert("✅ Sucesso", "Fechamento salvo no histórico! Você pode acessá-lo futuramente na aba 'Histórico'.");
   };
 
@@ -956,6 +1055,430 @@ export default function App() {
     showConfirm("Excluir Registro", "Tem certeza que deseja excluir este registro do histórico?", () => {
       setHistorico(prev => prev.filter(h => h.id !== id));
     });
+  };
+
+
+  // ================= FUNÇÕES PLANO DE SAÚDE =================
+
+  // Valida CPF pelo dígito verificador
+  const isCPFValido = (cpf) => {
+    const c = String(cpf).replace(/[^\d]/g, '');
+    if (c.length !== 11 || /^(\d)\1{10}$/.test(c)) return false;
+    let s = 0;
+    for (let i = 0; i < 9; i++) s += parseInt(c[i]) * (10 - i);
+    let r = (s * 10) % 11;
+    if (r === 10 || r === 11) r = 0;
+    if (r !== parseInt(c[9])) return false;
+    s = 0;
+    for (let i = 0; i < 10; i++) s += parseInt(c[i]) * (11 - i);
+    r = (s * 10) % 11;
+    if (r === 10 || r === 11) r = 0;
+    return r === parseInt(c[10]);
+  };
+
+  const processarFaturaPlano = async (file) => {
+    if (colaboradores.length === 0) {
+      return showAlert("Atenção", "Cadastre ou importe os colaboradores primeiro na aba 'Base Local'.");
+    }
+    if (!file) return;
+    if (!window.pdfjsLib) return showAlert("Aviso", "Aguarde, sistema carregando...");
+
+    setIsProcessingPlano(true);
+
+    try {
+      const buffer = await file.arrayBuffer();
+      const pdfData = new Uint8Array(buffer);
+      const pdf = await window.pdfjsLib.getDocument({ data: pdfData }).promise;
+
+      // Extrair texto de todas as páginas
+      const allLines = [];
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const items = textContent.items;
+
+        items.sort((a, b) => {
+          if (Math.abs(b.transform[5] - a.transform[5]) > 3) return b.transform[5] - a.transform[5];
+          return a.transform[4] - b.transform[4];
+        });
+
+        let currentLine = [];
+        let currentY = items.length > 0 ? items[0].transform[5] : 0;
+        items.forEach(item => {
+          const text = item.str.trim();
+          if (Math.abs(item.transform[5] - currentY) > 3) {
+            if (currentLine.length > 0) allLines.push(currentLine.join(' '));
+            currentLine = text ? [text] : [];
+            currentY = item.transform[5];
+          } else {
+            if (text) currentLine.push(text);
+          }
+        });
+        if (currentLine.length > 0) allLines.push(currentLine.join(' '));
+      }
+
+      // Detectar informações da fatura no cabeçalho
+      let mesReferencia = '';
+      let vencimento = '';
+      let totalFatura = 0;
+      let totalCopar = 0;
+
+      allLines.forEach(line => {
+        const l = line.toLowerCase();
+        if (l.includes('mês de referência') || l.includes('mes de referencia')) {
+          const m = line.match(/([A-Za-zÀ-ÿ]+\/\d{4})/);
+          if (m) mesReferencia = m[1];
+        }
+        if (l.includes('vencimento')) {
+          const m = line.match(/(\d{2}\/\d{2}\/\d{4})/);
+          if (m) vencimento = m[1];
+        }
+        if (l.includes('total de copar') || l.includes('total copar')) {
+          const m = line.match(/([\d.,]+)/g);
+          if (m) {
+            const v = parseFloat(m[m.length - 1].replace(/\./g, '').replace(',', '.'));
+            if (!isNaN(v)) totalCopar = v;
+          }
+        }
+      });
+
+      // Tentar pegar o total da fatura da última ocorrência de "Total X.XXX,XX"
+      const totalLine = [...allLines].reverse().find(l => /total[\s:]*[\d.,]+/i.test(l));
+      if (totalLine) {
+        const m = totalLine.match(/([\d.,]+)$/);
+        if (m) {
+          const v = parseFloat(m[1].replace(/\./g, '').replace(',', '.'));
+          if (!isNaN(v) && v > 0) totalFatura = v;
+        }
+      }
+
+      // ---- Parsear a tabela de vidas ----
+      // Estratégia: detectar linhas com padrão "BRL X.XXX,XX" no final (valor R$)
+      // Cada vida tem: Nome, Nº Carteirinha, Idade, CPF, Plano, Titularidade, Início vigência, Prêmio, Pro Rata, Copar, IOF, Valor R$
+      // O PDF do Porto Saúde agrupa texto de forma fragmentada. Vamos detectar linhas com CPF + valor.
+
+      const normalizeStr = (s) => String(s).trim().toUpperCase()
+        .normalize('NFD').replace(/[̀-ͯ]/g, '');
+
+      // Detectar blocos de vida: cada vida começa com linha que tem carteirinha (padrão 5XXXXXXXXXXXXX) ou CPF
+      // Melhor: reconstruir da última coluna "Valor R$" para trás usando o CPF como âncora
+
+      const vidasBruto = [];
+      let bufferNome = [];
+      let titularidadeAtual = null;
+      let cpfAtual = null;
+      let valorAtual = null;
+      let inicioVigAtual = null;
+
+      // Varrer linhas buscando padrões:
+      // - CPF: 11 dígitos (com ou sem máscara)
+      // - Titularidade: "Titular" ou "Dependente"
+      // - Valor: número no formato BRL X.XXX,XX ou standalone X.XXX,XX no fim
+      // - Início vigência: data DD/MM/YYYY
+
+      const cpfRegex = /(\d{3}\.?\d{3}\.?\d{3}-?\d{2})/;
+      const valorRegex = /BRL([\d.,]+)/g;
+      const dataRegex = /(\d{2}\/\d{2}\/\d{4})/;
+
+      // Acumular todo texto e tentar extrair por blocos de CPF
+      const fullText = allLines.join(' | ');
+
+      // Estratégia: dividir pelo padrão de CPF para isolar cada vida
+      // CPF formatado: 000.000.000-00 OU CPF puro 11 dígitos entre não-dígitos
+      // Excluímos números de carteirinha (14+ dígitos) e evitamos capturar
+      // partes de sequências maiores.
+      const cpfSplitRegex = /(?<!\d)(\d{3}\.\d{3}\.\d{3}-\d{2}|(?<!\d)\d{11}(?!\d))/g;
+      const allCpfMatches = [...fullText.matchAll(cpfSplitRegex)];
+      
+      // Filtrar: CPF válido não pode começar com todos dígitos iguais
+      // e deve ter exatamente 11 dígitos (sem máscara) ou formato 000.000.000-00
+      const cpfMatches = allCpfMatches.filter(m => {
+        const digits = m[1].replace(/[^\d]/g, '');
+        // Validar pelo dígito verificador — elimina carteirinhas e números aleatórios
+        return isCPFValido(digits);
+      });
+
+      const vidas = [];
+      const semCorrespondencia = [];
+
+      for (let i = 0; i < cpfMatches.length; i++) {
+        const cpfRaw = cpfMatches[i][1];
+        const cpfLimpo = cpfRaw.replace(/[^\d]/g, '');
+
+        // Pegar o trecho entre este CPF e o próximo
+        const startIdx = cpfMatches[i].index;
+        const endIdx = cpfMatches[i + 1] ? cpfMatches[i + 1].index : fullText.length;
+        const trecho = fullText.substring(
+          Math.max(0, startIdx - 200), // 200 chars antes para pegar o nome
+          endIdx
+        );
+
+        // Extrair titularidade
+        let titularidade = 'Titular';
+        if (/dependente/i.test(trecho)) titularidade = 'Dependente';
+
+        // Extrair data de início de vigência
+        const dataMatch = trecho.match(dataRegex);
+        const inicioVig = dataMatch ? dataMatch[0] : '';
+
+        // Extrair TODOS os valores BRL do trecho
+        const brlValues = [];
+        let m;
+        const brlRx = /BRL([\d.,]+)/g;
+        while ((m = brlRx.exec(trecho)) !== null) {
+          const v = parseFloat(m[1].replace(/\./g, '').replace(',', '.'));
+          if (!isNaN(v)) brlValues.push(v);
+        }
+
+        // O último valor BRL é o "Valor R$" (total da linha)
+        const valorFinal = brlValues.length > 0 ? brlValues[brlValues.length - 1] : 0;
+        // O primeiro valor BRL é o Prêmio
+        const premio = brlValues.length > 0 ? brlValues[0] : 0;
+
+        // Extrair nome: texto antes do CPF (pegar última sequência de palavras em maiúsculas)
+        const antesDosCPF = fullText.substring(Math.max(0, startIdx - 300), startIdx);
+        // Pegar a última parte que pareça um nome (letras, espaços, sem números)
+        const nomeMatch = antesDosCPF.match(/([A-ZÁÉÍÓÚÀÂÊÔÃÕÜÇ][A-ZÁÉÍÓÚÀÂÊÔÃÕÜÇa-záéíóúàâêôãõüç ]{3,80})(?:\s*\|?\s*)$/);
+        const nomeExtraido = nomeMatch ? nomeMatch[1].trim() : '';
+
+        if (valorFinal > 0) {
+          vidas.push({
+            cpf: cpfLimpo,
+            cpfFormatado: cpfLimpo.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4'),
+            titularidade,
+            inicioVig,
+            premio,
+            valorFinal,
+            nomeExtraido
+          });
+        }
+      }
+
+      // Agora cruzar com colaboradores: pela lógica do PDF do Porto Saúde,
+      // o CPF do segurado identifica o titular. Dependentes têm CPF próprio mas são vinculados ao titular.
+      // Vamos primeiro mapear titulares, depois dependentes ao titular mais próximo na ordem.
+
+      const titulares = vidas.filter(v => v.titularidade === 'Titular');
+      const dependentes = vidas.filter(v => v.titularidade === 'Dependente');
+
+      // Construir mapa CPF -> colaborador
+      const cpfToColab = {};
+      colaboradores.forEach(c => {
+        const cpfLimpo = String(c.cpf || '').replace(/[^\d]/g, '');
+        if (cpfLimpo) cpfToColab[cpfLimpo] = c;
+      });
+
+      // Construir mapa nome -> colaborador para fallback
+      const nomeToColab = {};
+      colaboradores.forEach(c => {
+        const nNorm = normalizeStr(c.nome);
+        nomeToColab[nNorm] = c;
+        // também indexar primeiro nome + sobrenome
+        const partes = nNorm.split(' ').filter(p => p.length > 1);
+        if (partes.length >= 2) {
+          nomeToColab[partes[0] + ' ' + partes[partes.length - 1]] = c;
+        }
+      });
+
+      const linhasProcessadas = [];
+      const naoEncontrados = [];
+
+      // Associar cada vida a um colaborador
+      // Dependentes: associar ao titular anterior na lista (última ocorrência de titular antes do dependente)
+      let ultimoTitularColab = null;
+
+      vidas.forEach((vida, idx) => {
+        let colab = cpfToColab[vida.cpf] || null;
+
+        // Fallback por nome
+        if (!colab && vida.nomeExtraido) {
+          const nNorm = normalizeStr(vida.nomeExtraido);
+          colab = nomeToColab[nNorm] || null;
+          if (!colab) {
+            // Tentar match parcial
+            const partes = nNorm.split(' ').filter(p => p.length > 2);
+            if (partes.length >= 2) {
+              const chave = partes[0] + ' ' + partes[partes.length - 1];
+              colab = nomeToColab[chave] || null;
+            }
+          }
+        }
+
+        if (vida.titularidade === 'Titular') {
+          ultimoTitularColab = colab;
+          if (colab) {
+            linhasProcessadas.push({
+              ...vida,
+              colaborador: colab,
+              centroCusto: colab.centroCusto || 'GERAL',
+              empresa: colab.empresa || 'NÃO INFORMADA',
+              nomeColaborador: colab.nome
+            });
+          } else {
+            naoEncontrados.push({ ...vida, motivo: 'CPF/Nome não encontrado na base' });
+          }
+        } else {
+          // Dependente: usar o mesmo CC/Empresa do titular anterior
+          if (ultimoTitularColab) {
+            linhasProcessadas.push({
+              ...vida,
+              colaborador: ultimoTitularColab,
+              centroCusto: ultimoTitularColab.centroCusto || 'GERAL',
+              empresa: ultimoTitularColab.empresa || 'NÃO INFORMADA',
+              nomeColaborador: ultimoTitularColab.nome + ' (dep.)'
+            });
+          } else if (colab) {
+            linhasProcessadas.push({
+              ...vida,
+              colaborador: colab,
+              centroCusto: colab.centroCusto || 'GERAL',
+              empresa: colab.empresa || 'NÃO INFORMADA',
+              nomeColaborador: colab.nome + ' (dep.)'
+            });
+          } else {
+            naoEncontrados.push({ ...vida, motivo: 'Dependente sem titular identificado' });
+          }
+        }
+      });
+
+      // Montar rateio por Empresa > CC
+      const rateio = {};
+      linhasProcessadas.forEach(linha => {
+        const emp = linha.empresa;
+        const cc = linha.centroCusto;
+        if (!rateio[emp]) rateio[emp] = {};
+        if (!rateio[emp][cc]) rateio[emp][cc] = { vidas: 0, titulares: 0, dependentes: 0, valor: 0, linhas: [] };
+        rateio[emp][cc].vidas++;
+        if (linha.titularidade === 'Titular') rateio[emp][cc].titulares++;
+        else rateio[emp][cc].dependentes++;
+        rateio[emp][cc].valor += linha.valorFinal;
+        rateio[emp][cc].linhas.push(linha);
+      });
+
+      const rateioArray = Object.keys(rateio).sort().map(emp => ({
+        empresa: emp,
+        centrosCusto: Object.keys(rateio[emp]).sort().map(cc => ({
+          centroCusto: cc,
+          vidas: rateio[emp][cc].vidas,
+          titulares: rateio[emp][cc].titulares,
+          dependentes: rateio[emp][cc].dependentes,
+          valor: rateio[emp][cc].valor,
+          linhas: rateio[emp][cc].linhas
+        })),
+        subtotal: Object.values(rateio[emp]).reduce((acc, c) => ({
+          vidas: acc.vidas + c.vidas,
+          valor: acc.valor + c.valor
+        }), { vidas: 0, valor: 0 })
+      }));
+
+      const totalRateado = linhasProcessadas.reduce((a, b) => a + b.valorFinal, 0);
+
+      const planoPayload = {
+        mesReferencia,
+        vencimento,
+        totalFatura,
+        totalCopar,
+        totalRateado,
+        totalVidas: vidas.length,
+        titulares: titulares.length,
+        dependentes: dependentes.length,
+        rateio: rateioArray,
+        naoEncontrados,
+        linhasProcessadas,
+        dataProcessamento: new Date().toLocaleString('pt-BR')
+      };
+      setPlanoSaudeData(planoPayload);
+      savePlanoSaude(planoPayload);
+
+      showAlert(
+        "✅ Fatura Processada!",
+        `${linhasProcessadas.length} vida(s) rateadas com sucesso!${naoEncontrados.length > 0 ? `
+
+⚠️ ${naoEncontrados.length} vida(s) não encontradas na base.` : ''}`
+      );
+    } catch (err) {
+      console.error(err);
+      showAlert("Erro", "Não foi possível processar o PDF. Verifique o arquivo.");
+    } finally {
+      setIsProcessingPlano(false);
+      if (fileInputPlano.current) fileInputPlano.current.value = '';
+    }
+  };
+
+  const exportPlanoSaudePDF = () => {
+    if (!planoSaudeData || !window.jspdf || !window.jspdf.jsPDF.API.autoTable) return;
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    doc.setFont("helvetica", "bold"); doc.setFontSize(16);
+    doc.text("RATEIO DE PLANO DE SAÚDE POR EMPRESA / CC", 14, 20);
+
+    doc.setFont("helvetica", "normal"); doc.setFontSize(10);
+    doc.text(`Mês de Referência: ${planoSaudeData.mesReferencia} | Vencimento: ${planoSaudeData.vencimento}`, 14, 28);
+    doc.text(`Total da Fatura: R$ ${formatMoney(planoSaudeData.totalFatura)} | Rateado: R$ ${formatMoney(planoSaudeData.totalRateado)} | Vidas: ${planoSaudeData.totalVidas}`, 14, 34);
+    doc.text(`Emitido em: ${planoSaudeData.dataProcessamento}`, 14, 40);
+
+    let startY = 48;
+
+    planoSaudeData.rateio.forEach((empData, idx) => {
+      doc.setFont("helvetica", "bold"); doc.setFontSize(11);
+      doc.setFillColor(14, 116, 144);
+      doc.setTextColor(255, 255, 255);
+      doc.rect(14, startY, 182, 8, 'F');
+      doc.text(empData.empresa, 16, startY + 5.5);
+      startY += 10;
+      doc.setTextColor(0, 0, 0);
+
+      const rows = empData.centrosCusto.map(cc => [
+        cc.centroCusto,
+        cc.titulares,
+        cc.dependentes,
+        cc.vidas,
+        `R$ ${formatMoney(cc.valor)}`
+      ]);
+
+      doc.autoTable({
+        startY,
+        head: [['Centro de Custo', 'Titulares', 'Dep.', 'Total Vidas', 'Valor R$']],
+        body: rows,
+        theme: 'striped',
+        headStyles: { fillColor: [8, 145, 178], fontSize: 9 },
+        styles: { fontSize: 9, cellPadding: 2 },
+        columnStyles: { 1: {halign:'center'}, 2: {halign:'center'}, 3: {halign:'center'}, 4: {halign:'right', fontStyle:'bold'} },
+        foot: [['Subtotal', empData.subtotal.vidas, '', '', `R$ ${formatMoney(empData.subtotal.valor)}`]],
+        footStyles: { fillColor: [207, 250, 254], textColor: [14, 116, 144], fontStyle: 'bold' },
+        margin: { left: 14, right: 14 }
+      });
+
+      startY = doc.lastAutoTable.finalY + 8;
+      if (startY > 260 && idx < planoSaudeData.rateio.length - 1) { doc.addPage(); startY = 20; }
+    });
+
+    doc.setFillColor(14, 116, 144);
+    doc.setTextColor(255,255,255);
+    doc.rect(14, startY, 182, 10, 'F');
+    doc.setFont("helvetica","bold"); doc.setFontSize(11);
+    doc.text(`TOTAL GERAL: R$ ${formatMoney(planoSaudeData.totalRateado)}  |  ${planoSaudeData.totalVidas} vidas`, 16, startY + 7);
+
+    doc.save(`Rateio_PlanoSaude_${planoSaudeData.mesReferencia?.replace('/', '-') || new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
+  const exportPlanoSaudeXLSX = () => {
+    if (!planoSaudeData || !window.XLSX) return;
+    const rows = [['Empresa', 'Centro de Custo', 'Titulares', 'Dependentes', 'Total Vidas', 'Valor R$']];
+    planoSaudeData.rateio.forEach(emp => {
+      emp.centrosCusto.forEach(cc => {
+        rows.push([emp.empresa, cc.centroCusto, cc.titulares, cc.dependentes, cc.vidas, cc.valor]);
+      });
+      rows.push(['SUBTOTAL ' + emp.empresa, '', '', '', emp.subtotal.vidas, emp.subtotal.valor]);
+      rows.push([]);
+    });
+    rows.push(['TOTAL GERAL', '', '', '', planoSaudeData.totalVidas, planoSaudeData.totalRateado]);
+    const ws = window.XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{wch:30},{wch:20},{wch:12},{wch:12},{wch:14},{wch:14}];
+    const wb = window.XLSX.utils.book_new();
+    window.XLSX.utils.book_append_sheet(wb, ws, 'Rateio Plano Saude');
+    window.XLSX.writeFile(wb, `Rateio_PlanoSaude_${planoSaudeData.mesReferencia?.replace('/', '-') || 'export'}.xlsx`);
   };
 
   // ================= CONTADORES PARA EXIBIÇÃO =================
@@ -1055,6 +1578,10 @@ export default function App() {
             <button onClick={() => setActiveTab('historico')} className={`flex-1 py-4 px-4 text-sm font-bold tracking-wide transition-colors flex justify-center items-center space-x-2 ${activeTab === 'historico' ? 'text-blue-700 bg-blue-50 border-b-2 border-blue-600' : 'text-gray-500 hover:bg-gray-50'}`}>
               <Clock className="w-5 h-5" /><span>Histórico</span>
               {historico.length > 0 && <span className="ml-1 px-2 py-0.5 bg-gray-200 text-gray-700 rounded-full text-xs">{historico.length}</span>}
+            </button>
+            <button onClick={() => setActiveTab('planoSaude')} className={`flex-1 py-4 px-4 text-sm font-bold tracking-wide transition-colors flex justify-center items-center space-x-2 ${activeTab === 'planoSaude' ? 'text-cyan-700 bg-cyan-50 border-b-2 border-cyan-600' : 'text-gray-500 hover:bg-gray-50'}`}>
+              <HeartPulse className="w-5 h-5" /><span>Plano de Saúde</span>
+              {planoSaudeData && <span className="ml-1 px-2 py-0.5 bg-cyan-100 text-cyan-700 rounded-full text-xs">{planoSaudeData.totalVidas}</span>}
             </button>
           </div>
         </div>
@@ -1182,7 +1709,7 @@ export default function App() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Pagamento</label>
-                  <select value={paymentType} onChange={(e) => setPaymentType(e.target.value)} className="w-full border p-2 rounded">
+                  <select value={paymentType} onChange={(e) => updatePaymentType(e.target.value)} className="w-full border p-2 rounded">
                     <option value="1">Salário</option>
                     <option value="5">Adiantamento Salarial</option>
                   </select>
@@ -1265,15 +1792,15 @@ export default function App() {
               <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Data Início</label>
-                  <input type="date" value={periodo.start} onChange={(e) => setPeriodo({...periodo, start: e.target.value})} className="w-full border p-2 rounded" />
+                  <input type="date" value={periodo.start} onChange={(e) => updatePeriodo({...periodo, start: e.target.value})} className="w-full border p-2 rounded" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Data Fim</label>
-                  <input type="date" value={periodo.end} onChange={(e) => setPeriodo({...periodo, end: e.target.value})} className="w-full border p-2 rounded" />
+                  <input type="date" value={periodo.end} onChange={(e) => updatePeriodo({...periodo, end: e.target.value})} className="w-full border p-2 rounded" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Feriados no Período</label>
-                  <input type="number" min="0" value={periodo.feriados} onChange={(e) => setPeriodo({...periodo, feriados: e.target.value})} className="w-full border p-2 rounded" />
+                  <input type="number" min="0" value={periodo.feriados} onChange={(e) => updatePeriodo({...periodo, feriados: e.target.value})} className="w-full border p-2 rounded" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Dias Úteis (calculado)</label>
@@ -1281,7 +1808,7 @@ export default function App() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">VR Diário Padrão (R$)</label>
-                  <CurrencyInput value={valorVRDiario} onChange={setValorVRDiario} className="w-full border p-2 rounded" placeholder="Ex: 45,00" />
+                  <CurrencyInput value={valorVRDiario} onChange={updateValorVRDiario} className="w-full border p-2 rounded" placeholder="Ex: 45,00" />
                 </div>
               </div>
               <div className="flex gap-3 mt-4">
@@ -1516,6 +2043,231 @@ export default function App() {
             </div>
           </div>
         )}
+
+
+        {/* ================= ABA 6: PLANO DE SAÚDE ================= */}
+        {activeTab === 'planoSaude' && (
+          <div className="space-y-6 animate-fade-in">
+
+            {/* Upload da Fatura */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-800 flex items-center space-x-2">
+                    <HeartPulse className="w-6 h-6 text-cyan-600" />
+                    <span>Processamento de Fatura — Plano de Saúde</span>
+                  </h2>
+                  <p className="text-sm text-gray-500 mt-1">Anexe o PDF da fatura Porto Saúde. O sistema irá cruzar os CPFs com a base de colaboradores e ratear os valores por Empresa e Centro de Custo.</p>
+                  {colaboradores.length === 0 && (
+                    <p className="text-xs text-orange-600 mt-2 flex items-center">
+                      <AlertTriangle className="w-3 h-3 mr-1" />
+                      Nenhum colaborador cadastrado. Acesse "Base Local" primeiro.
+                    </p>
+                  )}
+                </div>
+                <div className="flex flex-col items-end gap-2 shrink-0">
+                  <input
+                    type="file"
+                    accept=".pdf"
+                    ref={fileInputPlano}
+                    className="hidden"
+                    onChange={(e) => { if (e.target.files[0]) processarFaturaPlano(e.target.files[0]); }}
+                  />
+                  <button
+                    onClick={() => fileInputPlano.current.click()}
+                    disabled={isProcessingPlano || colaboradores.length === 0}
+                    className="flex items-center space-x-2 px-5 py-2 bg-cyan-600 text-white font-medium rounded-lg hover:bg-cyan-700 disabled:opacity-50"
+                  >
+                    {isProcessingPlano ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Upload className="w-5 h-5" />}
+                    <span>{isProcessingPlano ? 'Processando...' : 'Anexar Fatura PDF'}</span>
+                  </button>
+                  {planoSaudeData && (
+                    <button
+                      onClick={() => showConfirm("Limpar Dados", "Deseja remover os dados da fatura atual?", () => { setPlanoSaudeData(null); savePlanoSaude(null); })}
+                      className="text-xs text-red-500 hover:text-red-700 flex items-center space-x-1"
+                    >
+                      <Trash2 className="w-3 h-3" /><span>Limpar</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Resultado */}
+            {planoSaudeData && (
+              <>
+                {/* Resumo da Fatura */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-cyan-50 border border-cyan-100 rounded-xl p-4">
+                    <p className="text-xs text-cyan-600 font-semibold uppercase tracking-wide">Mês de Referência</p>
+                    <p className="text-xl font-bold text-gray-800 mt-1">{planoSaudeData.mesReferencia || '—'}</p>
+                    <p className="text-xs text-gray-400 mt-1">Venc: {planoSaudeData.vencimento || '—'}</p>
+                  </div>
+                  <div className="bg-green-50 border border-green-100 rounded-xl p-4">
+                    <p className="text-xs text-green-600 font-semibold uppercase tracking-wide">Total Rateado</p>
+                    <p className="text-xl font-bold text-gray-800 mt-1">R$ {formatMoney(planoSaudeData.totalRateado)}</p>
+                    <p className="text-xs text-gray-400 mt-1">de R$ {formatMoney(planoSaudeData.totalFatura)} da fatura</p>
+                  </div>
+                  <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
+                    <p className="text-xs text-blue-600 font-semibold uppercase tracking-wide">Vidas Rateadas</p>
+                    <p className="text-xl font-bold text-gray-800 mt-1">{planoSaudeData.linhasProcessadas.length}</p>
+                    <p className="text-xs text-gray-400 mt-1">{planoSaudeData.titulares} titular(es) · {planoSaudeData.dependentes} dep.</p>
+                  </div>
+                  <div className={`border rounded-xl p-4 ${planoSaudeData.naoEncontrados.length > 0 ? 'bg-orange-50 border-orange-200' : 'bg-emerald-50 border-emerald-100'}`}>
+                    <p className={`text-xs font-semibold uppercase tracking-wide ${planoSaudeData.naoEncontrados.length > 0 ? 'text-orange-600' : 'text-emerald-600'}`}>Não Encontrados</p>
+                    <p className="text-xl font-bold text-gray-800 mt-1">{planoSaudeData.naoEncontrados.length}</p>
+                    <p className="text-xs text-gray-400 mt-1">{planoSaudeData.naoEncontrados.length === 0 ? '✅ Todos cruzados' : 'Sem CC definido'}</p>
+                  </div>
+                </div>
+
+                {/* Rateio Hierárquico */}
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-bold text-gray-800">Rateio por Empresa e Centro de Custo</h3>
+                    <div className="flex gap-2">
+                      <button onClick={exportPlanoSaudePDF} className="flex items-center space-x-1 px-3 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 text-sm">
+                        <FileText className="w-4 h-4" /><span>PDF</span>
+                      </button>
+                      <button onClick={exportPlanoSaudeXLSX} className="flex items-center space-x-1 px-3 py-2 bg-green-700 text-white font-medium rounded-lg hover:bg-green-800 text-sm">
+                        <Download className="w-4 h-4" /><span>Excel</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    {planoSaudeData.rateio.map((empData, idx) => (
+                      <div key={idx} className="border border-cyan-100 rounded-lg overflow-hidden">
+                        <div className="flex justify-between items-center p-4 bg-cyan-50">
+                          <div className="flex items-center space-x-2">
+                            <Building2 className="w-5 h-5 text-cyan-600" />
+                            <span className="font-bold text-gray-800">{empData.empresa}</span>
+                            <span className="text-sm text-gray-400">({empData.subtotal.vidas} vida(s))</span>
+                          </div>
+                          <span className="font-bold text-cyan-700 text-lg">R$ {formatMoney(empData.subtotal.valor)}</span>
+                        </div>
+                        <div className="p-4">
+                          <table className="w-full text-sm">
+                            <thead className="bg-gray-50">
+                              <tr>
+                                <th className="p-2 text-left text-gray-600">Centro de Custo</th>
+                                <th className="p-2 text-center text-gray-600">Titulares</th>
+                                <th className="p-2 text-center text-gray-600">Dep.</th>
+                                <th className="p-2 text-center text-gray-600">Total Vidas</th>
+                                <th className="p-2 text-right font-bold text-gray-700">Valor R$</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {empData.centrosCusto.map((cc, ccIdx) => (
+                                <tr key={ccIdx} className="border-t hover:bg-gray-50">
+                                  <td className="p-2 font-medium">{cc.centroCusto}</td>
+                                  <td className="p-2 text-center">
+                                    <span className="inline-flex items-center gap-1 text-blue-700"><UserCheck className="w-3 h-3" />{cc.titulares}</span>
+                                  </td>
+                                  <td className="p-2 text-center">
+                                    <span className="inline-flex items-center gap-1 text-purple-600"><Users className="w-3 h-3" />{cc.dependentes}</span>
+                                  </td>
+                                  <td className="p-2 text-center font-semibold">{cc.vidas}</td>
+                                  <td className="p-2 text-right font-bold text-cyan-700">R$ {formatMoney(cc.valor)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                            <tfoot className="bg-cyan-50 font-bold">
+                              <tr>
+                                <td className="p-2 text-cyan-700">Subtotal</td>
+                                <td colSpan={3} className="p-2 text-center text-cyan-700">{empData.subtotal.vidas} vida(s)</td>
+                                <td className="p-2 text-right text-cyan-700">R$ {formatMoney(empData.subtotal.valor)}</td>
+                              </tr>
+                            </tfoot>
+                          </table>
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* Total Geral */}
+                    <div className="bg-cyan-600 rounded-xl p-4">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <span className="font-bold text-white text-lg">TOTAL GERAL RATEADO</span>
+                          <span className="ml-3 text-cyan-100 text-sm">{planoSaudeData.rateio.length} empresa(s) · {planoSaudeData.linhasProcessadas.length} vida(s)</span>
+                        </div>
+                        <span className="text-2xl font-bold text-white">R$ {formatMoney(planoSaudeData.totalRateado)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Detalhamento individual */}
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                  <h3 className="text-lg font-bold text-gray-800 mb-4">Detalhamento Individual das Vidas</h3>
+                  <div className="overflow-x-auto max-h-[400px]">
+                    <table className="w-full text-xs">
+                      <thead className="bg-gray-100 sticky top-0">
+                        <tr>
+                          <th className="p-2 text-left">Colaborador (Base)</th>
+                          <th className="p-2 text-left">CPF Fatura</th>
+                          <th className="p-2 text-center">Tipo</th>
+                          <th className="p-2 text-left">Empresa</th>
+                          <th className="p-2 text-left">CC</th>
+                          <th className="p-2 text-center">Início Vig.</th>
+                          <th className="p-2 text-right font-bold">Valor R$</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {planoSaudeData.linhasProcessadas.map((linha, idx) => (
+                          <tr key={idx} className={`border-t ${linha.titularidade === 'Dependente' ? 'bg-purple-50' : 'hover:bg-gray-50'}`}>
+                            <td className="p-2 font-medium">{linha.nomeColaborador}</td>
+                            <td className="p-2 font-mono text-gray-500">{linha.cpfFormatado}</td>
+                            <td className="p-2 text-center">
+                              {linha.titularidade === 'Titular'
+                                ? <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs">Titular</span>
+                                : <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-xs">Dep.</span>
+                              }
+                            </td>
+                            <td className="p-2 truncate max-w-[120px]">{linha.empresa}</td>
+                            <td className="p-2">{linha.centroCusto}</td>
+                            <td className="p-2 text-center text-gray-500">{linha.inicioVig}</td>
+                            <td className="p-2 text-right font-bold text-cyan-700">R$ {formatMoney(linha.valorFinal)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Não encontrados */}
+                {planoSaudeData.naoEncontrados.length > 0 && (
+                  <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
+                    <h3 className="font-bold text-orange-700 mb-3 flex items-center gap-2">
+                      <AlertTriangle className="w-5 h-5" />
+                      Vidas sem correspondência na base ({planoSaudeData.naoEncontrados.length})
+                    </h3>
+                    <div className="space-y-2">
+                      {planoSaudeData.naoEncontrados.map((item, idx) => (
+                        <div key={idx} className="text-sm text-orange-800 bg-white rounded p-2 border border-orange-100">
+                          <span className="font-mono">{item.cpfFormatado}</span>
+                          <span className="mx-2 text-gray-400">·</span>
+                          <span>{item.titularidade}</span>
+                          <span className="mx-2 text-gray-400">·</span>
+                          <span className="text-orange-600">{item.motivo}</span>
+                          <span className="ml-2 font-bold text-cyan-700">R$ {formatMoney(item.valorFinal)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {!planoSaudeData && !isProcessingPlano && (
+              <div className="text-center py-16 text-gray-400">
+                <HeartPulse className="w-16 h-16 mx-auto mb-4 opacity-30" />
+                <p className="text-lg font-medium">Nenhuma fatura processada</p>
+                <p className="text-sm mt-1">Clique em "Anexar Fatura PDF" para começar.</p>
+              </div>
+            )}
+          </div>
+        )}
+
 
       </div>
     </div>
