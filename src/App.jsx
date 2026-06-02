@@ -81,12 +81,75 @@ export default function App() {
   const [planoSaudeData, setPlanoSaudeData] = useState(null);
   const [isProcessingPlano, setIsProcessingPlano] = useState(false);
   const fileInputPlano = useRef(null);
+  const [sincSolides, setSincSolides] = useState({ status: 'idle', msg: '', incompletos: [] }); // idle | syncing | ok | error
 
   // Controle de Visualização do ERP
   const [incluirBeneficiosNoERP, setIncluirBeneficiosNoERP] = useState(true);
 
   // Estado para controlar expansão das empresas no ERP
   const [expandedEmpresas, setExpandedEmpresas] = useState({});
+
+  // ================= SINCRONIZAÇÃO SOLIDES =================
+  const sincronizarSolides = async (silencioso = false) => {
+    setSincSolides(s => ({ ...s, status: 'syncing', msg: 'Sincronizando com Solides...' }));
+    try {
+      const resp = await fetch('/api/solides');
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const { colaboradores: doSolides } = await resp.json();
+      if (!doSolides || doSolides.length === 0) throw new Error('Nenhum colaborador retornado');
+
+      // Cruzar com base atual do Firestore para preservar dados bancários/VT
+      const baseAtual = {};
+      colaboradores.forEach(c => { baseAtual[c.matricula] = c; });
+
+      const merged = doSolides.map(sol => {
+        const existente = baseAtual[sol.matricula] || {};
+        return {
+          ...sol,
+          // Preservar dados que já existem no sistema
+          banco:      existente.banco    || sol.banco    || '',
+          agencia:    existente.agencia  || sol.agencia  || '',
+          conta:      existente.conta    || sol.conta    || '',
+          valorVT:    existente.valorVT  || sol.valorVT  || '',
+          // CC e empresa: Solides prevalece, mas preserva se Solides vier vazio
+          centroCusto: sol.centroCusto || existente.centroCusto || '',
+          empresa:     sol.empresa !== 'NÃO INFORMADA' ? sol.empresa : (existente.empresa || 'NÃO INFORMADA'),
+        };
+      });
+
+      // Detectar incompletos
+      const incompletos = merged.filter(c =>
+        !c.banco || !c.agencia || !c.conta || !c.valorVT || !c.centroCusto
+      );
+
+      await saveColaboradores(merged);
+      setColaboradores(merged);
+      setSincSolides({
+        status: 'ok',
+        msg: `${merged.length} colaboradores sincronizados às ${new Date().toLocaleTimeString('pt-BR')}`,
+        incompletos
+      });
+
+      if (!silencioso && incompletos.length > 0) {
+        showAlert('⚠️ Cadastros Incompletos',
+          `${incompletos.length} colaborador(es) importados da Solides estão com dados faltando (banco, agência, conta, VT ou centro de custo).\n\nAcesse a aba "Base Local" para completar.`
+        );
+      }
+    } catch (err) {
+      setSincSolides({ status: 'error', msg: `Erro: ${err.message}`, incompletos: [] });
+      if (!silencioso) showAlert('❌ Erro na sincronização', err.message);
+    }
+  };
+
+  // Sincronizar automaticamente ao carregar o sistema
+  useEffect(() => {
+    if (dbReady) {
+      sincronizarSolides(true);
+      // Re-sincronizar a cada 30 minutos
+      const interval = setInterval(() => sincronizarSolides(true), 30 * 60 * 1000);
+      return () => clearInterval(interval);
+    }
+  }, [dbReady]);
 
   // Wrappers para salvar config ao mudar
   const updatePaymentType = (val) => { setPaymentType(val); saveConfig('paymentType', val); };
@@ -1562,7 +1625,27 @@ export default function App() {
     <FileText className="w-4 h-4" />
     <span>Docs</span>
   </a>
-  <button 
+  {/* Botão Solides */}
+  <button
+    onClick={() => sincronizarSolides(false)}
+    disabled={sincSolides.status === 'syncing'}
+    className={`px-3 py-2 text-sm rounded-lg flex items-center space-x-1 font-medium ${
+      sincSolides.status === 'error' ? 'bg-red-100 text-red-600 hover:bg-red-200' :
+      sincSolides.status === 'ok' && sincSolides.incompletos.length > 0 ? 'bg-orange-100 text-orange-700 hover:bg-orange-200' :
+      sincSolides.status === 'ok' ? 'bg-green-100 text-green-700 hover:bg-green-200' :
+      'bg-blue-100 text-blue-700 hover:bg-blue-200'
+    }`}
+    title={sincSolides.msg}
+  >
+    <RefreshCw className={`w-4 h-4 ${sincSolides.status === 'syncing' ? 'animate-spin' : ''}`} />
+    <span>
+      {sincSolides.status === 'syncing' ? 'Sincronizando...' :
+       sincSolides.status === 'error' ? 'Solides ❌' :
+       sincSolides.incompletos.length > 0 ? `Solides ⚠️ ${sincSolides.incompletos.length}` :
+       'Solides ✓'}
+    </span>
+  </button>
+  <button
     onClick={sincronizarDados}
     className="px-3 py-2 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 flex items-center space-x-1 font-medium"
     title="Sincronizar dados entre abas"
@@ -1651,6 +1734,48 @@ export default function App() {
                   <input placeholder="Empresa *" value={formData.empresa} onChange={e => setFormData({...formData, empresa: e.target.value})} className="border p-2 rounded col-span-2 bg-blue-100 border-blue-300" />
                   <button type="submit" className="bg-green-600 text-white font-bold rounded py-2 hover:bg-green-700">Salvar Dados</button>
                 </form>
+              </div>
+            )}
+
+            {/* Alerta de colaboradores com dados incompletos vindos da Solides */}
+            {sincSolides.incompletos.length > 0 && (
+              <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-bold text-orange-700 flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5" />
+                    {sincSolides.incompletos.length} colaborador(es) com cadastro incompleto
+                  </h3>
+                  <span className="text-xs text-orange-500">Importados da Solides — preencha os dados faltantes</span>
+                </div>
+                <div className="overflow-x-auto max-h-48">
+                  <table className="w-full text-xs">
+                    <thead className="bg-orange-100">
+                      <tr>
+                        <th className="p-2 text-left">Nome</th>
+                        <th className="p-2 text-center">Banco</th>
+                        <th className="p-2 text-center">Agência</th>
+                        <th className="p-2 text-center">Conta</th>
+                        <th className="p-2 text-center">VT</th>
+                        <th className="p-2 text-center">CC</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sincSolides.incompletos.map((col, idx) => (
+                        <tr key={idx} className="border-t">
+                          <td className="p-2 font-medium">{col.nome}</td>
+                          {['banco','agencia','conta','valorVT','centroCusto'].map(field => (
+                            <td key={field} className="p-2 text-center">
+                              {col[field]
+                                ? <span className="text-green-600">✓</span>
+                                : <span className="px-2 py-0.5 bg-red-100 text-red-600 rounded text-xs font-bold">falta</span>
+                              }
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
 
