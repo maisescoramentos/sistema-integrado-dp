@@ -89,71 +89,12 @@ export default function App() {
   // Estado para controlar expansão das empresas no ERP
   const [expandedEmpresas, setExpandedEmpresas] = useState({});
 
-  // ================= SINCRONIZAÇÃO SOLIDES =================
-  const sincronizarSolides = async (silencioso = false) => {
-    setSincSolides(s => ({ ...s, status: 'syncing', msg: 'Sincronizando com Solides...' }));
-    try {
-      const resp = await fetch('/api/solides');
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
-      const { colaboradores: doSolides } = await resp.json();
-      if (!doSolides || doSolides.length === 0) throw new Error('Nenhum colaborador retornado');
-
-      // Cruzar com base atual do Firestore para preservar dados bancários/VT
-      const baseAtual = {};
-      colaboradores.forEach(c => { baseAtual[c.matricula] = c; });
-
-      const merged = doSolides.map(sol => {
-        const existente = baseAtual[sol.matricula] || {};
-        return {
-          ...sol,
-          // Preservar dados que já existem no sistema
-          banco:      existente.banco    || sol.banco    || '',
-          agencia:    existente.agencia  || sol.agencia  || '',
-          conta:      existente.conta    || sol.conta    || '',
-          valorVT:    existente.valorVT  || sol.valorVT  || '',
-          // CC e empresa: Solides prevalece, mas preserva se Solides vier vazio
-          centroCusto: sol.centroCusto || existente.centroCusto || '',
-          empresa:     sol.empresa !== 'NÃO INFORMADA' ? sol.empresa : (existente.empresa || 'NÃO INFORMADA'),
-        };
-      });
-
-      // Detectar incompletos
-      const incompletos = merged.filter(c =>
-        !c.banco || !c.agencia || !c.conta || !c.valorVT || !c.centroCusto
-      );
-
-      await saveColaboradores(merged);
-      setColaboradores(merged);
-      setSincSolides({
-        status: 'ok',
-        msg: merged.length + ' colaboradores sincronizados às ' + new Date().toLocaleTimeString('pt-BR'),
-        incompletos
-      });
-
-      if (!silencioso && incompletos.length > 0) {
-        showAlert('⚠️ Cadastros Incompletos',
-          incompletos.length + ' colaborador(es) importados da Solides estão com dados faltando (banco, agência, conta, VT ou centro de custo).\n\nAcesse a aba "Base Local" para completar.'
-        );
-      }
-    } catch (err) {
-      setSincSolides({ status: 'error', msg: 'Erro: ' + err.message, incompletos: [] });
-      if (!silencioso) showAlert('❌ Erro na sincronização', err.message);
-    }
-  };
-
   // Wrappers para salvar config ao mudar
   const updatePaymentType = (val) => { setPaymentType(val); saveConfig('paymentType', val); };
   const updatePeriodo = (val) => { setPeriodo(val); saveConfig('periodo', val); };
   const updateValorVRDiario = (val) => { setValorVRDiario(val); saveConfig('valorVRDiario', val); };
 
-  // Sincronizar automaticamente ao carregar o sistema (após todas as funções estarem definidas)
-  useEffect(() => {
-    if (dbReady) {
-      sincronizarSolides(true);
-      const interval = setInterval(() => sincronizarSolides(true), 30 * 60 * 1000);
-      return () => clearInterval(interval);
-    }
-  }, [dbReady]);
+
 
   // ================= FIRESTORE: CARREGAMENTO INICIAL =================
   const [dbReady, setDbReady] = useState(false);
@@ -284,6 +225,68 @@ export default function App() {
     if (/^\d+$/.test(str.trim())) return str.trim(); 
     return str; 
   };
+
+  // ================= SINCRONIZAÇÃO SOLIDES =================
+  const sincronizarSolides = async (silencioso = false) => {
+    setSincSolides(s => ({ ...s, status: 'syncing', msg: 'Sincronizando com Solides...' }));
+    try {
+      const resp = await fetch('/api/solides');
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const { colaboradores: doSolides } = await resp.json();
+      if (!doSolides || doSolides.length === 0) throw new Error('Nenhum colaborador retornado');
+
+      // Cruzar com base atual do Firestore para preservar dados bancários/VT
+      const baseAtual = {};
+      colaboradores.forEach(c => { baseAtual[c.matricula] = c; });
+
+      const merged = doSolides.map(sol => {
+        const existente = baseAtual[sol.matricula] || {};
+        return {
+          ...sol,
+          // Preservar dados que já existem no sistema
+          banco:      existente.banco    || sol.banco    || '',
+          agencia:    existente.agencia  || sol.agencia  || '',
+          conta:      existente.conta    || sol.conta    || '',
+          valorVT:    existente.valorVT  || sol.valorVT  || '',
+          // CC e empresa: Solides prevalece, mas preserva se Solides vier vazio
+          centroCusto: sol.centroCusto || existente.centroCusto || '',
+          empresa:     sol.empresa !== 'NÃO INFORMADA' ? sol.empresa : (existente.empresa || 'NÃO INFORMADA'),
+        };
+      });
+
+      // Detectar incompletos
+      const incompletos = merged.filter(c =>
+        !c.banco || !c.agencia || !c.conta || !c.valorVT || !c.centroCusto
+      );
+
+      await saveColaboradores(merged);
+      setColaboradores(merged);
+      setSincSolides({
+        status: 'ok',
+        msg: merged.length + ' colaboradores sincronizados às ' + new Date().toLocaleTimeString('pt-BR'),
+        incompletos
+      });
+
+      if (!silencioso && incompletos.length > 0) {
+        showAlert('⚠️ Cadastros Incompletos',
+          incompletos.length + ' colaborador(es) importados da Solides estão com dados faltando (banco, agência, conta, VT ou centro de custo).\n\nAcesse a aba "Base Local" para completar.'
+        );
+      }
+    } catch (err) {
+      setSincSolides({ status: 'error', msg: 'Erro: ' + err.message, incompletos: [] });
+      if (!silencioso) showAlert('❌ Erro na sincronização', err.message);
+    }
+  };
+
+
+  // Auto-sync ao carregar (declarado após sincronizarSolides para evitar hoisting)
+  useEffect(() => {
+    if (dbReady) {
+      sincronizarSolides(true);
+      const interval = setInterval(() => sincronizarSolides(true), 30 * 60 * 1000);
+      return () => clearInterval(interval);
+    }
+  }, [dbReady]);
 
   // ================= FUNÇÃO DE RESET COMPLETO =================
   const resetCompleto = () => {
